@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractTableDataFromImage } from '@/ai/flows/extract-table-data-from-image';
 import type { ExtractTableDataFromImageOutput } from '@/ai/flows/extract-table-data-from-image';
@@ -36,6 +37,7 @@ export default function ScoreParser() {
   const [extractedData, setExtractedData] = useState<Player[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const { toast } = useToast();
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,13 +86,23 @@ export default function ScoreParser() {
     setIsLoading(true);
     setError(null);
     setExtractedData(null);
+    setProgress(0);
+    
+    const allData: Player[] = [];
     try {
-      const results = await Promise.all(
-        imageUrls.map(url => extractTableDataFromImage({ photoDataUri: url }))
-      );
+      for (let i = 0; i < imageUrls.length; i++) {
+        const url = imageUrls[i];
+        try {
+          const result = await extractTableDataFromImage({ photoDataUri: url });
+          allData.push(...result.tableData);
+        } catch (e) {
+            // If one image fails, we can choose to continue or stop.
+            // Let's log it and continue for now.
+            console.error(`Failed to process image ${i+1}:`, e);
+        }
+        setProgress(((i + 1) / imageUrls.length) * 100);
+      }
 
-      const allData = results.flatMap(result => result.tableData);
-      
       if (allData.length > 0) {
         setExtractedData(allData);
         toast({
@@ -202,7 +214,8 @@ export default function ScoreParser() {
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center pt-10">
                     <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
-                    <p className='text-muted-foreground'>Performing AI magic...</p>
+                    <p className='text-muted-foreground mb-4'>Performing AI magic... ({Math.round(progress)}%)</p>
+                    <Progress value={progress} className="w-3/4" />
                 </CardContent>
             </Card>
         )}
@@ -290,5 +303,3 @@ export default function ScoreParser() {
     </div>
   );
 }
-
-    
