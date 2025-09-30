@@ -314,22 +314,51 @@ export default function ScoreParser() {
             input.playerNames = masterPlayerList;
         }
 
-        const result = await extractRaceDataFromImage(input);
+        const aiResult = await extractRaceDataFromImage(input);
+
+        // Calculate delta rank logic
+        const previousExtractedData = [...extractedData, ...newExtractedResults];
+        
+        const processedRaceData = aiResult.map(currentPlayer => {
+          let raceScore = currentPlayer.score;
+          if (raceForThisImage > 1) {
+            const previousRace = previousExtractedData.find(r => r.raceNumber === raceForThisImage - 1);
+            if (previousRace) {
+              const previousPlayer = previousRace.data.find(p => getMasterPlayerName(p.playerName, masterPlayerList) === getMasterPlayerName(currentPlayer.playerName, masterPlayerList));
+              if (previousPlayer) {
+                raceScore = currentPlayer.score - previousPlayer.score;
+              }
+            }
+          }
+          return { ...currentPlayer, raceScore };
+        });
+
+        processedRaceData.sort((a, b) => b.raceScore - a.raceScore);
+
+        const finalRaceData = processedRaceData.map((player, index) => {
+            const rankSuffixes = ['st', 'nd', 'rd'];
+            const rank = index + 1;
+            const suffix = rankSuffixes[rank - 1] || 'th';
+            return {
+              ...player,
+              rank: `${rank}${suffix}`,
+            };
+        });
         
         newExtractedResult = {
           imageUrl: url,
           filename: file.name,
           raceNumber: raceForThisImage,
-          data: result,
+          data: finalRaceData,
         };
         
         // If it's the first batch of races and no master list was provided, create one from the first successful result.
-        if (masterPlayerList.length === 0 && result.some(d => d.isValid)) {
-            masterPlayerList = result.filter(r => r.isValid).map(r => r.playerName);
+        if (masterPlayerList.length === 0 && finalRaceData.some(d => d.isValid)) {
+            masterPlayerList = finalRaceData.filter(r => r.isValid).map(r => r.playerName);
         }
 
-        if(result.some(d => d.isValid)) {
-          updateMergedDataWithRace(result, raceForThisImage, masterPlayerList);
+        if(finalRaceData.some(d => d.isValid)) {
+          updateMergedDataWithRace(finalRaceData, raceForThisImage, masterPlayerList);
         }
         processedCount++;
         currentRaceNumber++;
