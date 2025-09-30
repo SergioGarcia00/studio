@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   XCircle,
   FileImage,
+  ServerCrash,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -83,11 +84,18 @@ export default function ScoreParser() {
       }
     } catch (e) {
       console.error(e);
-      const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
-      setError(`An error occurred during extraction: ${errorMessage}`);
+      let errorMessage = 'An unknown error occurred.';
+      if (e instanceof Error) {
+        if (e.message.includes('503')) {
+            errorMessage = 'The AI model is currently overloaded. Please try again in a moment.';
+        } else {
+            errorMessage = e.message;
+        }
+      }
+      setError(errorMessage);
       toast({
         title: 'Extraction Error',
-        description: `An error occurred: ${errorMessage}`,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -145,7 +153,7 @@ export default function ScoreParser() {
           </CardContent>
         </Card>
 
-        {imageUrl && (
+        {imageUrl && !isLoading && !extractedData && !error && (
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle>Image Preview</CardTitle>
@@ -161,22 +169,20 @@ export default function ScoreParser() {
 
       <div className="lg:col-span-3">
         {isLoading && (
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Extracting Data...</CardTitle>
-              <CardDescription>The AI is analyzing your image. Please wait.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </CardContent>
-          </Card>
+            <Card className="shadow-lg min-h-[400px]">
+                <CardHeader>
+                    <CardTitle>Extracting Data...</CardTitle>
+                    <CardDescription>The AI is analyzing your image. Please wait a moment.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center pt-10">
+                    <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
+                    <p className='text-muted-foreground'>Performing AI magic...</p>
+                </CardContent>
+            </Card>
         )}
         {error && (
           <Alert variant="destructive">
-            <XCircle className="h-4 w-4" />
+            {error.includes('overloaded') ? <ServerCrash className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
             <AlertTitle>Extraction Failed</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
@@ -234,11 +240,23 @@ export default function ScoreParser() {
         {!isLoading && !error && !extractedData && (
           <Card className="flex flex-col items-center justify-center h-full min-h-[400px] border-dashed shadow-inner">
             <CardContent className="text-center p-6">
-              <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
-              <h3 className="mt-4 text-xl font-semibold">Results will appear here</h3>
-              <p className="mt-2 text-base text-muted-foreground">
-                Upload an image and click "Extract Data" to see the magic.
-              </p>
+              {imageUrl ? 
+                <>
+                    <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
+                    <h3 className="mt-4 text-xl font-semibold">Ready to Extract</h3>
+                    <p className="mt-2 text-base text-muted-foreground">
+                        Click the "Extract Data" button to begin.
+                    </p>
+                </>
+                :
+                <>
+                    <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
+                    <h3 className="mt-4 text-xl font-semibold">Results will appear here</h3>
+                    <p className="mt-2 text-base text-muted-foreground">
+                        Upload an image and click "Extract Data" to see the magic.
+                    </p>
+                </>
+              }
             </CardContent>
           </Card>
         )}
