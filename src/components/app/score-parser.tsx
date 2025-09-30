@@ -77,13 +77,16 @@ export default function ScoreParser() {
 
         let bestMatchName = rawPlayer.playerName;
 
+        // If there are existing players, try to match the new player name to an existing one.
         if (existingPlayerNames.length > 0) {
             const { bestMatch } = findBestMatch(rawPlayer.playerName, existingPlayerNames);
-            if (bestMatch.rating > 0.7) { // Similarity threshold
+            // If we find a good match, use the existing name as the canonical one.
+            if (bestMatch.rating > 0.7) { 
                 bestMatchName = bestMatch.target;
             }
         }
         
+        // If the player doesn't exist yet, create a new entry.
         if (!updatedData[bestMatchName]) {
             updatedData[bestMatchName] = {
                 playerName: bestMatchName,
@@ -115,48 +118,6 @@ export default function ScoreParser() {
                 }
             });
         }
-      }
-      
-      // If we have more than 12 players, try to merge them
-      if (Object.keys(updatedData).length > 12) {
-          const allNames = Object.keys(updatedData);
-          const { ratings } = findBestMatch(allNames[0], allNames.slice(1));
-          
-          let merged = false;
-          for (const rating of ratings) {
-              if (rating.rating > 0.7) { // High confidence merge
-                  const playerToKeepName = rating.target;
-                  const playerToMergeName = allNames[0];
-                  
-                  const playerToKeep = updatedData[playerToKeepName];
-                  const playerToMerge = updatedData[playerToMergeName];
-
-                  // Simple merge logic: prefer non-null values
-                  playerToKeep.gp1 = playerToKeep.gp1 ?? playerToMerge.gp1;
-                  playerToKeep.gp2 = playerToKeep.gp2 ?? playerToMerge.gp2;
-                  playerToKeep.gp3 = playerToKeep.gp3 ?? playerToMerge.gp3;
-                  playerToKeep.total = playerToKeep.total ?? playerToMerge.total;
-                  playerToKeep.rank = playerToKeep.rank ?? playerToMerge.rank;
-                  playerToKeep.team = playerToKeep.team || playerToMerge.team;
-
-                  // Merge shocks
-                  if (playerToMerge.shocks) {
-                      playerToMerge.shocks.forEach(shock => {
-                          if (!playerToKeep.shocks.includes(shock)) {
-                              playerToKeep.shocks.push(shock);
-                          }
-                      });
-                  }
-
-                  delete updatedData[playerToMergeName];
-                  merged = true;
-                  break; 
-              }
-          }
-           // Re-run with a smaller subset if not merged, to avoid complex loops
-          if (!merged && Object.keys(updatedData).length > 12) {
-               console.warn("Could not automatically merge players, manual review may be needed.");
-          }
       }
 
       return updatedData;
