@@ -67,29 +67,71 @@ export default function ScoreParser() {
     }
   };
 
+  const normalizePlayerName = (name: string): string => {
+    // Remove common team prefixes like "JJ", "DS", "D$" etc.
+    // This regex looks for 1-3 uppercase letters, optionally followed by a space, dash, or dollar sign, at the start of the string.
+    let normalized = name.trim().replace(/^[A-Z]{1,3}[s$]?[\s\-. ]*/i, '');
+
+    // Fallback for names that might *only* be the prefix part, or simple cases
+    if (normalized.length < 2) {
+        normalized = name.trim();
+    }
+    
+    // A final cleanup for any other special characters that might be left.
+    // This helps with things like 'D$.Yien' becoming 'Yien'
+    return normalized.replace(/[^\w\s]/gi, '').trim();
+  }
+
+
   const updateMergedData = (newRawPlayers: ProcessedPlayer[]) => {
     setMergedData(prevData => {
       let updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
       const existingPlayerNames = Object.keys(updatedData);
 
+      // Create a mapping from normalized existing names to their original canonical name
+      const normalizedMap = existingPlayerNames.reduce((acc, name) => {
+          acc[normalizePlayerName(name)] = name;
+          return acc;
+      }, {} as {[key: string]: string});
+      const normalizedExistingNames = Object.keys(normalizedMap);
+
+
       for (const rawPlayer of newRawPlayers) {
         if (!rawPlayer.isValid || !rawPlayer.playerName) continue;
 
-        let bestMatchName = rawPlayer.playerName;
+        const normalizedNewName = normalizePlayerName(rawPlayer.playerName);
+        let bestMatchName = rawPlayer.playerName; // Default to the original name
+        let isNewPlayer = true;
+
 
         // If there are existing players, try to match the new player name to an existing one.
-        if (existingPlayerNames.length > 0) {
-            const { bestMatch } = findBestMatch(rawPlayer.playerName, existingPlayerNames);
-            // If we find a good match, use the existing name as the canonical one.
-            if (bestMatch.rating > 0.7) { 
-                bestMatchName = bestMatch.target;
+        if (normalizedExistingNames.length > 0) {
+            const { bestMatch } = findBestMatch(normalizedNewName, normalizedExistingNames);
+            
+            // If we find a good match, use the existing canonical name.
+            if (bestMatch.rating > 0.6) { // Lowered threshold slightly for more flexibility
+                bestMatchName = normalizedMap[bestMatch.target];
+                isNewPlayer = false;
             }
         }
         
+        // If it's a new player and we already have 12, we should try to force a match
+        // to the most similar existing player, even if the rating is low.
+        if (isNewPlayer && existingPlayerNames.length >= 12 && normalizedExistingNames.length > 0) {
+            const { bestMatch } = findBestMatch(normalizedNewName, normalizedExistingNames);
+            bestMatchName = normalizedMap[bestMatch.target];
+            isNewPlayer = false;
+             toast({
+              title: 'Player Merged',
+              description: `"${rawPlayer.playerName}" was merged with "${bestMatchName}" to keep the player count at 12.`,
+            });
+        }
+
+
         // If the player doesn't exist yet, create a new entry.
-        if (!updatedData[bestMatchName]) {
+        if (isNewPlayer && (!updatedData[bestMatchName] || Object.keys(updatedData).length < 12)) {
             updatedData[bestMatchName] = {
-                playerName: bestMatchName,
+                playerName: bestMatchName, // Use the original non-normalized name for the first entry
                 team: rawPlayer.team,
                 scores: Array(12).fill(null),
                 shocks: [],
@@ -103,6 +145,9 @@ export default function ScoreParser() {
         }
         
         const mergedPlayer = updatedData[bestMatchName];
+
+        if (!mergedPlayer) continue; // Should not happen, but a safeguard.
+
         mergedPlayer.team = rawPlayer.team || mergedPlayer.team;
         mergedPlayer.rank = rawPlayer.rank || mergedPlayer.rank;
         mergedPlayer.total = rawPlayer.total ?? mergedPlayer.total;
