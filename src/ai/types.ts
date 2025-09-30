@@ -89,7 +89,7 @@ export type ProcessedPlayer = z.infer<typeof ProcessedPlayerSchema>;
 export const PlayerSchema = z.object({
   playerName: z.string(),
   team: z.string(),
-  scores: z.array(z.number().nullable()).length(12),
+  ranks: z.array(z.string().nullable()).length(12),
   shocks: z.array(z.number()), // Array of race numbers with shocks
   gp1: z.number().nullable(),
   gp2: z.number().nullable(),

@@ -84,11 +84,11 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                 {players.map((player, pIndex) => (
                   <TableRow key={pIndex}>
                     <TableCell className="font-medium sticky left-0 bg-background/95">{player.playerName}</TableCell>
-                    {/* GP1 Scores */}
-                    {player.scores.slice(0,4).map((score, sIndex) => (
+                    {/* GP1 Ranks */}
+                    {player.ranks.slice(0,4).map((rank, sIndex) => (
                         <TableCell key={sIndex} className="text-center font-mono">
                           <div className='flex items-center justify-center gap-1'>
-                            {score ?? '-'}
+                            {rank ?? '-'}
                             {player.shocks.includes(sIndex + 1) && (
                               <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />
                             )}
@@ -97,11 +97,11 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.gp1 ?? '-'}</TableCell>
                     
-                    {/* GP2 Scores */}
-                    {player.scores.slice(4,8).map((score, sIndex) => (
+                    {/* GP2 Ranks */}
+                    {player.ranks.slice(4,8).map((rank, sIndex) => (
                         <TableCell key={sIndex+4} className="text-center font-mono">
                           <div className='flex items-center justify-center gap-1'>
-                            {score ?? '-'}
+                            {rank ?? '-'}
                             {player.shocks.includes(sIndex + 5) && (
                               <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />
                             )}
@@ -110,11 +110,11 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.gp2 ?? '-'}</TableCell>
 
-                    {/* GP3 Scores */}
-                     {player.scores.slice(8,12).map((score, sIndex) => (
+                    {/* GP3 Ranks */}
+                     {player.ranks.slice(8,12).map((rank, sIndex) => (
                         <TableCell key={sIndex+8} className="text-center font-mono">
                           <div className='flex items-center justify-center gap-1'>
-                            {score ?? '-'}
+                            {rank ?? '-'}
                             {player.shocks.includes(sIndex + 9) && (
                               <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />
                             )}

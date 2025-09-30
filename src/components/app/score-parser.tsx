@@ -46,6 +46,17 @@ type MergedPlayerInfo = {
   to: string;
 };
 
+const RANK_TO_SCORE: { [key: string]: number } = {
+  '1st': 15, '2nd': 12, '3rd': 10, '4th': 9, '5th': 8, '6th': 7,
+  '7th': 6, '8th': 5, '9th': 4, '10th': 3, '11th': 2, '12th': 1,
+};
+
+const rankToScore = (rank: string | null): number => {
+    if (!rank) return 0;
+    return RANK_TO_SCORE[rank] || 0;
+};
+
+
 export default function ScoreParser() {
   const [images, setImages] = useState<File[]>([]);
   const [playerNames, setPlayerNames] = useState('');
@@ -133,7 +144,7 @@ export default function ScoreParser() {
             updatedData[bestMatchName] = {
                 playerName: bestMatchName,
                 team: racePlayer.team,
-                scores: Array(12).fill(null),
+                ranks: Array(12).fill(null),
                 shocks: [],
                 gp1: null,
                 gp2: null,
@@ -147,9 +158,9 @@ export default function ScoreParser() {
         const mergedPlayer = updatedData[bestMatchName];
         if (!mergedPlayer) continue;
 
-        // Insert score for the current race
+        // Insert rank for the current race
         if (raceNumber >= 1 && raceNumber <= 12) {
-          mergedPlayer.scores[raceNumber - 1] = racePlayer.score;
+          mergedPlayer.ranks[raceNumber - 1] = racePlayer.rank;
         }
 
         mergedPlayer.team = racePlayer.team || mergedPlayer.team;
@@ -163,17 +174,17 @@ export default function ScoreParser() {
 
       // After updating scores, recalculate totals
       Object.values(updatedData).forEach(player => {
-        const sum = (arr: (number|null)[]) => arr.reduce((acc: number, val) => acc + (val ?? 0), 0);
+        const sumRanks = (arr: (string|null)[]) => arr.reduce((acc: number, rank) => acc + rankToScore(rank), 0);
         
-        const gp1Scores = player.scores.slice(0, 4);
-        const gp2Scores = player.scores.slice(4, 8);
-        const gp3Scores = player.scores.slice(8, 12);
+        const gp1Ranks = player.ranks.slice(0, 4);
+        const gp2Ranks = player.ranks.slice(4, 8);
+        const gp3Ranks = player.ranks.slice(8, 12);
 
-        if (gp1Scores.some(s => s !== null)) player.gp1 = sum(gp1Scores);
-        if (gp2Scores.some(s => s !== null)) player.gp2 = sum(gp2Scores);
-        if (gp3Scores.some(s => s !== null)) player.gp3 = sum(gp3Scores);
+        if (gp1Ranks.some(r => r !== null)) player.gp1 = sumRanks(gp1Ranks);
+        if (gp2Ranks.some(r => r !== null)) player.gp2 = sumRanks(gp2Ranks);
+        if (gp3Ranks.some(r => r !== null)) player.gp3 = sumRanks(gp3Ranks);
 
-        player.total = sum(player.scores);
+        player.total = sumRanks(player.ranks);
       });
       
       // Recalculate ranks based on final totals
@@ -322,8 +333,8 @@ export default function ScoreParser() {
     const timestamp = new Date().toISOString();
   
     players.forEach(player => {
-      player.scores.forEach((score, raceIndex) => {
-        if (score !== null) {
+      player.ranks.forEach((rank, raceIndex) => {
+        if (rank !== null) {
           const raceNumber = raceIndex + 1;
           const shocksTeamA = players.filter(p => p.team === teamA && p.shocks.includes(raceNumber)).length;
           const shocksTeamB = players.filter(p => p.team === teamB && p.shocks.includes(raceNumber)).length;
@@ -334,7 +345,7 @@ export default function ScoreParser() {
             team: player.team,
             player: player.playerName,
             delta: player.rank, // Using final rank for delta
-            score: score,
+            score: rankToScore(rank),
             shocks_teamA: shocksTeamA,
             shocks_teamB: shocksTeamB,
           });
