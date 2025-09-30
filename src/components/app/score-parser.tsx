@@ -96,11 +96,13 @@ export default function ScoreParser() {
   };
 
   const normalizePlayerName = (name: string): string => {
-    let normalized = name.trim().replace(/^[A-Z]{1,3}[s$]?[\s\-. ]*/i, '');
-    if (normalized.length < 2) {
-        normalized = name.trim();
-    }
-    return normalized.replace(/[^\w\s]/gi, '').trim();
+    // Converts to basic latin characters (e.g. ηαγzου -> nayzou)
+    const normalized = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    // Removes team prefixes and non-alphanumeric characters, except spaces
+    return normalized
+      .replace(/^(DS|JJ|D\$)[-\s.]*/i, '') // Remove prefixes like DS, JJ, D$
+      .replace(/[^\w\s]/gi, '') // Remove remaining non-alphanumeric chars
+      .trim();
   }
 
 
@@ -127,7 +129,7 @@ export default function ScoreParser() {
 
         if (normalizedExistingNames.length > 0) {
             const { bestMatch } = findBestMatch(normalizedNewName, normalizedExistingNames);
-            if (bestMatch.rating > 0.7) { 
+            if (bestMatch.rating > 0.6) { // Adjusted threshold for better matching
                 bestMatchName = normalizedMap[bestMatch.target];
                 isNewPlayer = false;
             }
