@@ -17,15 +17,9 @@ export function exportToCsv(data: CsvData[], filename: string, headers: string[]
 
   const header = headers.join(',') + '\n';
   
-  // Create a map from header to data key. This is more robust.
-  const dataKeys = headers.map(h => {
-    const lower = h.toLowerCase();
-    return lower.replace(/ /g, '_');
-  });
-
   const rows = data
     .map(row => 
-      dataKeys.map(key => sanitize(row[key])).join(',')
+      headers.map(key => sanitize(row[key])).join(',')
     )
     .join('\n');
     
