@@ -472,7 +472,7 @@ export default function ScoreParser() {
             <CardHeader>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <CardTitle>3. Review & Download</CardTitle>
+                  <CardTitle>3. Review &amp; Download</CardTitle>
                   <CardDescription>Review extracted data and download or preview results.</CardDescription>
                 </div>
                 <div className='flex items-center gap-2 flex-wrap'>
@@ -512,20 +512,23 @@ export default function ScoreParser() {
                                   <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
                               </div>
                           </div>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                       <div className='flex justify-end mb-2'>
                            <Button 
                               variant="ghost" 
-                              size="icon" 
+                              size="sm" 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDownloadSingleRaceCsv(result);
                               }}
                               aria-label="Download CSV for this race"
                             >
-                              <Download className='h-5 w-5 text-muted-foreground' />
+                              <Download className='h-4 w-4 mr-2' />
+                              Download Race CSV
                            </Button>
                         </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
                        <div className='overflow-x-auto max-h-[60vh]'>
                         <Table>
                           <TableHeader className='sticky top-0 bg-card'>
