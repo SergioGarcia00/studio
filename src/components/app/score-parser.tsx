@@ -362,9 +362,6 @@ export default function ScoreParser() {
                               <TableHead className="w-[120px]">Status</TableHead>
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
-                              <TableHead>GP1</TableHead>
-                              <TableHead>GP2</TableHead>
-                              <TableHead>GP3</TableHead>
                               <TableHead className="text-right">Total</TableHead>
                               <TableHead>Rank</TableHead>
                             </TableRow>
@@ -385,15 +382,12 @@ export default function ScoreParser() {
                                 </TableCell>
                                 <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
                                 <TableCell>{player.team || 'N/A'}</TableCell>
-                                <TableCell className="font-mono">{player.gp1 ?? '-'}</TableCell>
-                                <TableCell className="font-mono">{player.gp2 ?? '-'}</TableCell>
-                                <TableCell className="font-mono">{player.gp3 ?? '-'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.total ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
                               </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
                                 </TableRow>
                             )}
                           </TableBody>
