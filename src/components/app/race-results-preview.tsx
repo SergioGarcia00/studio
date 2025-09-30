@@ -191,11 +191,6 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                     <TableCell></TableCell>
                     <TableCell className="text-center font-mono">{teamStats.blue.total}</TableCell>
                   </TableRow>
-                  <TableRow className='bg-blue-900/50 font-bold'>
-                    <TableCell className="sticky left-0 bg-background/95">Total Equipo Azul</TableCell>
-                    <TableCell colSpan={15}></TableCell>
-                    <TableCell className="text-center font-mono">{teamStats.blue.total}</TableCell>
-                  </TableRow>
                   <TableRow className='bg-purple-500/50 font-bold'>
                     <TableCell className="sticky left-0 bg-background/95">Diferencia</TableCell>
                     {teamStats.diff.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono">{s}</TableCell>)}
@@ -206,11 +201,6 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                     <TableCell className="text-center font-mono bg-muted/50">{teamStats.diff.gp3}</TableCell>
                     <TableCell></TableCell>
                     <TableCell className="text-center font-mono">{teamStats.diff.total}</TableCell>
-                  </TableRow>
-                   <TableRow className='bg-red-900/50 font-bold'>
-                    <TableCell className="sticky left-0 bg-background/95">Total Equipo Rojo</TableCell>
-                    <TableCell colSpan={15}></TableCell>
-                    <TableCell className="text-center font-mono">{teamStats.red.total}</TableCell>
                   </TableRow>
                   <TableRow className='bg-muted/20 font-bold'>
                     <TableCell className="sticky left-0 bg-background/95">Puntos Equipo Rojo</TableCell>
