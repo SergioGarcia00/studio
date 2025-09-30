@@ -12,6 +12,7 @@ import {
   FileImage,
   ServerCrash,
   TableIcon,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -26,19 +27,12 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractTableDataFromImage } from '@/ai/flows/extract-table-data-from-image';
-import type { ExtractTableDataFromImageOutput } from '@/ai/flows/extract-table-data-from-image';
+import type { ExtractedData, Player } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RaceResultsPreview } from './race-results-preview';
-
-type Player = ExtractTableDataFromImageOutput['tableData'][0];
-export type ExtractedData = {
-  imageUrl: string;
-  filename: string;
-  data: Player[];
-};
 
 type ImageQueueItem = {
   file: File;
@@ -65,7 +59,6 @@ export default function ScoreParser() {
           variant: 'destructive',
         });
       }
-      setExtractedData(null);
       setError(null);
       setImages(fileArray);
     }
@@ -82,10 +75,9 @@ export default function ScoreParser() {
     }
     setIsLoading(true);
     setError(null);
-    setExtractedData(null);
     setProgress(0);
     
-    const allData: ExtractedData[] = [];
+    const newExtractedData: ExtractedData[] = [];
     const maxRetriesPerImage = 2;
     const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
     let processedCount = 0;
@@ -109,7 +101,7 @@ export default function ScoreParser() {
         try {
           const url = await readFileAsDataURL(file);
           const result = await extractTableDataFromImage({ photoDataUri: url });
-          allData.push({
+          newExtractedData.push({
             imageUrl: url,
             filename: file.name,
             data: result.tableData,
@@ -126,7 +118,7 @@ export default function ScoreParser() {
                 });
             } else {
                  // For non-retryable errors or maxed out retries, treat as failed but don't stop the whole batch
-                allData.push({
+                newExtractedData.push({
                     imageUrl: URL.createObjectURL(file), // create a temp URL for preview
                     filename: file.name,
                     data: [], // Mark as no data extracted
@@ -142,13 +134,25 @@ export default function ScoreParser() {
         setProgress((processedCount / images.length) * 100);
       }
 
-      if (allData.some(d => d.data.length > 0)) {
-        setExtractedData(allData.sort((a,b) => images.findIndex(f => f.name === a.filename) - images.findIndex(f => f.name === b.filename)));
+      if (newExtractedData.some(d => d.data.length > 0)) {
+        setExtractedData(prevData => {
+            const combined = [...(prevData || []), ...newExtractedData];
+            const sorted = combined.sort((a,b) => {
+                // Keep original order if possible, otherwise append new ones
+                const aIndex = prevData?.findIndex(p => p.filename === a.filename) ?? -1;
+                const bIndex = prevData?.findIndex(p => p.filename === b.filename) ?? -1;
+                if(aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+                return 0;
+            });
+            return sorted;
+        });
+
         toast({
           title: 'Extraction Complete',
           description: `Data processing finished for ${images.length} image(s).`,
           className: 'bg-accent text-accent-foreground'
         });
+        setImages([]); // Clear selection after successful processing
       } else {
         setError('Could not extract any data from the images. Please try other images or check the image quality.');
         toast({
@@ -211,6 +215,17 @@ export default function ScoreParser() {
     exportToCsv(allValidData, 'scores.csv', headers);
   };
   
+  const handleClearResults = () => {
+    setExtractedData(null);
+    setImages([]);
+    setError(null);
+    setProgress(0);
+    toast({
+        title: "Results Cleared",
+        description: "The review and download area has been cleared.",
+    });
+  }
+
   const allPlayers = extractedData?.flatMap(d => d.data.filter(p => p.isValid)) || [];
 
   return (
@@ -249,7 +264,7 @@ export default function ScoreParser() {
           </CardContent>
         </Card>
 
-        {images.length > 0 && !isLoading && !extractedData && !error && (
+        {images.length > 0 && !isLoading && (
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle>Image Previews ({images.length})</CardTitle>
@@ -279,14 +294,14 @@ export default function ScoreParser() {
                 </CardContent>
             </Card>
         )}
-        {error && (
+        {error && !isLoading && (
           <Alert variant="destructive">
             {error.includes('overloaded') ? <ServerCrash className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
             <AlertTitle>Extraction Failed</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {extractedData && (
+        {extractedData && !isLoading && (
           <Card className="shadow-lg">
             <CardHeader>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -294,7 +309,7 @@ export default function ScoreParser() {
                   <CardTitle>3. Review & Download</CardTitle>
                   <CardDescription>Review extracted data and download or preview results.</CardDescription>
                 </div>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-2 flex-wrap'>
                    <Dialog>
                         <DialogTrigger asChild>
                             <Button variant="outline" disabled={allPlayers.length === 0}>
@@ -313,13 +328,17 @@ export default function ScoreParser() {
                         <Download className="mr-2 h-4 w-4" />
                         Download CSV
                     </Button>
+                     <Button onClick={handleClearResults} variant="destructive" size="icon">
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Clear Results</span>
+                    </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <Accordion type="multiple" className="w-full" defaultValue={extractedData.map((_, i) => `item-${i}`)}>
                 {extractedData.map((result, index) => (
-                  <AccordionItem value={`item-${index}`} key={index}>
+                  <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
                     <AccordionTrigger>
                         <div className='flex items-center gap-4'>
                             <div className="relative aspect-video w-24">
@@ -327,7 +346,7 @@ export default function ScoreParser() {
                             </div>
                             <div className='text-left'>
                                 <p className='font-semibold'>{result.filename}</p>
-                                <p className='text-sm text-muted-foreground'>{result.data.length} records found</p>
+                                <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
                             </div>
                         </div>
                     </AccordionTrigger>
@@ -377,7 +396,7 @@ export default function ScoreParser() {
             </CardContent>
           </Card>
         )}
-        {!isLoading && !error && !extractedData && (
+        {!isLoading && !extractedData && (
           <Card className="flex flex-col items-center justify-center h-full min-h-[400px] border-dashed shadow-inner">
             <CardContent className="text-center p-6">
               {images.length > 0 ? 
