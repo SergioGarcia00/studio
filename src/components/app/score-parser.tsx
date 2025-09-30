@@ -182,6 +182,30 @@ export default function ScoreParser() {
         }
       }
 
+      // Infer scores from GP totals
+      Object.values(updatedData).forEach(player => {
+        const gps = [player.gp1, player.gp2, player.gp3];
+        let runningTotal = 0;
+        for (let i = 0; i < gps.length; i++) {
+          const gpTotal = gps[i];
+          if (gpTotal !== null) {
+            const previousGPsTotal = gps.slice(0, i).reduce((sum, val) => sum + (val || 0), 0);
+            const currentGPScores = player.scores.slice(i * 4, (i + 1) * 4);
+            const knownScoresSum = currentGPScores.reduce((sum, score) => sum + (score || 0), 0);
+            
+            const unknownScoreCount = currentGPScores.filter(s => s === null).length;
+            if (unknownScoreCount === 1) {
+              const inferredScore = gpTotal - knownScoresSum - previousGPsTotal;
+              const indexToFill = currentGPScores.findIndex(s => s === null);
+              if (indexToFill !== -1) {
+                  player.scores[i * 4 + indexToFill] = inferredScore;
+              }
+            }
+          }
+        }
+      });
+
+
       return updatedData;
     });
 
@@ -300,24 +324,49 @@ export default function ScoreParser() {
       return;
     }
 
-    const allValidData = Object.values(mergedData).map(p => ({
-        playerName: p.playerName,
-        team: p.team,
-        ...Array.from({length: 12}).reduce((acc, _, i) => ({ ...acc, [`race${i+1}`]: p.scores[i] }), {}),
-        gp1: p.gp1,
-        gp2: p.gp2,
-        gp3: p.gp3,
-        total: p.total,
-        rank: p.rank,
-    }));
+    const csvData: any[] = [];
+    const timestamp = new Date().toISOString();
+    const players = Object.values(mergedData);
+    const teamA = 'JJ (BLUE)';
+    const teamB = 'DS (RED)';
+
+    for (let raceNum = 1; raceNum <= 12; raceNum++) {
+        const shocksTeamA = players.filter(p => p.team === teamA && p.shocks.includes(raceNum)).length;
+        const shocksTeamB = players.filter(p => p.team === teamB && p.shocks.includes(raceNum)).length;
+
+        for (const player of players) {
+            const score = player.scores[raceNum - 1];
+            
+            // Only add a row if there is a score for that race
+            if (score !== null && score !== undefined) {
+                csvData.push({
+                    timestamp: timestamp,
+                    race: raceNum,
+                    team: player.team,
+                    player: player.playerName,
+                    delta: player.rank,
+                    score: score,
+                    shocks_teamA: shocksTeamA,
+                    shocks_teamB: shocksTeamB,
+                });
+            }
+        }
+    }
     
+    if (csvData.length === 0) {
+        toast({
+            title: 'No race data to export',
+            description: 'No individual race scores have been recorded yet.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
     const headers = [
-        'Player Name', 'Team',
-        ...Array.from({length: 12}, (_, i) => `Race ${i+1}`),
-        'GP1', 'GP2', 'GP3', 'Total', 'Rank'
+        'timestamp', 'race', 'team', 'player', 'delta', 'score', 'shocks_teamA', 'shocks_teamB'
     ];
     
-    exportToCsv(allValidData, 'merged_scores.csv', headers);
+    exportToCsv(csvData, 'race_analysis.csv', headers);
   };
   
   const handleClearResults = () => {

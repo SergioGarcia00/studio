@@ -20,10 +20,7 @@ export function exportToCsv(data: CsvData[], filename: string, headers: string[]
   // Create a map from header to data key. This is more robust.
   const dataKeys = headers.map(h => {
     const lower = h.toLowerCase();
-    if (lower === 'player name') return 'playerName';
-    if (lower === 'image') return 'image';
-    if (lower.startsWith('race ')) return `race${h.split(' ')[1]}`;
-    return lower;
+    return lower.replace(/ /g, '_');
   });
 
   const rows = data
