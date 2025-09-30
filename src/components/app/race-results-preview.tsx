@@ -23,6 +23,7 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
   const groupedData = useMemo(() => {
     const validPlayers = data.filter(player => player.isValid);
     const groups: { [key: string]: Player[] } = {};
+    
     validPlayers.forEach(player => {
       const team = player.team || 'Unassigned';
       if (!groups[team]) {
@@ -30,11 +31,19 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
       }
       groups[team].push(player);
     });
-    // Sort players within each group by rank
+
+    // Helper to convert rank string to a number for sorting.
+    const rankToNumber = (rank: string | null): number => {
+        if (!rank) return 99; // Unranked players go to the bottom.
+        const num = parseInt(rank.replace(/\D/g, ''), 10);
+        return isNaN(num) ? 99 : num;
+    };
+
+    // Sort players within each group by their final rank.
     Object.keys(groups).forEach(team => {
-        const rankToNumber = (rank: string | null) => parseInt(String(rank).replace(/[^0-9]/g, ''), 10) || 99;
         groups[team].sort((a, b) => rankToNumber(a.rank) - rankToNumber(b.rank));
     });
+    
     return groups;
   }, [data]);
 
