@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import {
   FileUp,
@@ -35,6 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { RaceResultsPreview } from './race-results-preview';
 import { findBestMatch } from 'string-similarity';
 import { Textarea } from '../ui/textarea';
+import { cn } from '@/lib/utils';
 
 
 type ImageQueueItem = {
@@ -57,6 +58,7 @@ const rankToScore = (rank: string | null): number => {
     return RANK_TO_SCORE[rank] || 0;
 };
 
+const sumRanks = (arr: (string|null)[]) => arr.reduce((acc: number, rank) => acc + rankToScore(rank), 0);
 
 export default function ScoreParser() {
   const [images, setImages] = useState<File[]>([]);
@@ -79,7 +81,7 @@ export default function ScoreParser() {
       setLastForcedMerge(null); // Reset after showing toast
     }
   }, [lastForcedMerge, toast]);
-
+  
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
@@ -104,9 +106,36 @@ export default function ScoreParser() {
       .replace(/[^\w\s]/gi, '')
       .trim();
   }
+  
+  const recalculateAllTotals = (data: MergedRaceData): MergedRaceData => {
+    const newData = JSON.parse(JSON.stringify(data)) as MergedRaceData;
+    
+    Object.values(newData).forEach(player => {
+        const gp1Ranks = player.ranks.slice(0, 4);
+        const gp2Ranks = player.ranks.slice(4, 8);
+        const gp3Ranks = player.ranks.slice(8, 12);
 
+        player.gp1 = gp1Ranks.some(r => r !== null) ? sumRanks(gp1Ranks) : null;
+        player.gp2 = gp2Ranks.some(r => r !== null) ? sumRanks(gp2Ranks) : null;
+        player.gp3 = gp3Ranks.some(r => r !== null) ? sumRanks(gp3Ranks) : null;
 
-  const updateMergedData = (raceResults: ValidatedRacePlayerResult[], raceNumber: number) => {
+        player.total = sumRanks(player.ranks);
+    });
+      
+    const sortedPlayers = Object.values(newData).sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+    sortedPlayers.forEach((p, index) => {
+        if(newData[p.playerName]){
+            const rankSuffixes = ['st', 'nd', 'rd'];
+            const rank = index + 1;
+            const suffix = rankSuffixes[rank - 1] || 'th';
+            newData[p.playerName].rank = `${rank}${suffix}`;
+        }
+    });
+
+    return newData;
+  }
+
+  const updateMergedDataWithRace = useCallback((raceResults: ValidatedRacePlayerResult[], raceNumber: number) => {
     const newForcedMerges: MergedPlayerInfo[] = [];
     
     setMergedData(prevData => {
@@ -129,7 +158,7 @@ export default function ScoreParser() {
 
         if (normalizedExistingNames.length > 0) {
             const { bestMatch } = findBestMatch(normalizedNewName, normalizedExistingNames);
-            if (bestMatch.rating > 0.6) { // Adjusted threshold for better matching
+            if (bestMatch.rating > 0.6) {
                 bestMatchName = normalizedMap[bestMatch.target];
                 isNewPlayer = false;
             }
@@ -164,7 +193,6 @@ export default function ScoreParser() {
           mergedPlayer.ranks[raceNumber - 1] = racePlayer.rank;
         }
         
-        // Only update the team if it's not already set to a more specific value
         if (racePlayer.team && (!mergedPlayer.team || !mergedPlayer.team.includes('('))) {
             mergedPlayer.team = racePlayer.team;
         }
@@ -176,36 +204,53 @@ export default function ScoreParser() {
         }
       }
 
-      Object.values(updatedData).forEach(player => {
-        const sumRanks = (arr: (string|null)[]) => arr.reduce((acc: number, rank) => acc + rankToScore(rank), 0);
-        
-        const gp1Ranks = player.ranks.slice(0, 4);
-        const gp2Ranks = player.ranks.slice(4, 8);
-        const gp3Ranks = player.ranks.slice(8, 12);
-
-        if (gp1Ranks.some(r => r !== null)) player.gp1 = sumRanks(gp1Ranks);
-        if (gp2Ranks.some(r => r !== null)) player.gp2 = sumRanks(gp2Ranks);
-        if (gp3Ranks.some(r => r !== null)) player.gp3 = sumRanks(gp3Ranks);
-
-        player.total = sumRanks(player.ranks);
-      });
-      
-      const sortedPlayers = Object.values(updatedData).sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
-      sortedPlayers.forEach((p, index) => {
-        if(updatedData[p.playerName]){
-            const rankSuffix = ['st', 'nd', 'rd'][index] ?? 'th';
-            updatedData[p.playerName].rank = `${index + 1}${rankSuffix}`;
-        }
-      });
-
-
-      return updatedData;
+      const finalData = recalculateAllTotals(updatedData);
+      return finalData;
     });
 
     if (newForcedMerges.length > 0) {
       setLastForcedMerge(newForcedMerges[newForcedMerges.length - 1]);
     }
-  }
+  }, []);
+
+  const handleToggleShock = (raceIndex: number, playerIndex: number) => {
+    const updatedExtractedData = [...extractedData];
+    const targetRace = updatedExtractedData[raceIndex];
+    const targetPlayer = targetRace.data[playerIndex];
+
+    if (targetPlayer) {
+      targetPlayer.shocked = !targetPlayer.shocked;
+      setExtractedData(updatedExtractedData);
+
+      setMergedData(prevData => {
+        const normalizedPlayerName = normalizePlayerName(targetPlayer.playerName);
+         const { bestMatch } = findBestMatch(normalizedPlayerName, Object.keys(prevData).map(p => normalizePlayerName(p)));
+         const bestMatchName = findBestMatch(normalizedPlayerName, Object.keys(prevData)).bestMatch.target;
+
+         const originalPlayerName = Object.keys(prevData).find(p => normalizePlayerName(p) === bestMatchName) || '';
+
+        const playerToUpdate = prevData[originalPlayerName];
+
+        if (playerToUpdate) {
+            const raceNumber = targetRace.raceNumber;
+            const shockIndex = playerToUpdate.shocks.indexOf(raceNumber);
+
+            if (targetPlayer.shocked) {
+                if (shockIndex === -1) {
+                    playerToUpdate.shocks.push(raceNumber);
+                }
+            } else {
+                if (shockIndex > -1) {
+                    playerToUpdate.shocks.splice(shockIndex, 1);
+                }
+            }
+             const finalData = recalculateAllTotals(prevData);
+             return finalData;
+        }
+        return prevData;
+      });
+    }
+  };
 
   const handleExtractData = async () => {
     if (images.length === 0) {
@@ -268,7 +313,7 @@ export default function ScoreParser() {
         };
         
         if(result.some(d => d.isValid)) {
-          updateMergedData(result, raceForThisImage);
+          updateMergedDataWithRace(result, raceForThisImage);
         }
         processedCount++;
         currentRaceNumber++;
@@ -547,7 +592,15 @@ export default function ScoreParser() {
                                 <TableCell>{player.team || 'N/A'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
-                                <TableCell>{player.shocked ? <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" /> : ''}</TableCell>
+                                <TableCell>
+                                   <Zap
+                                    className={cn(
+                                      'h-4 w-4 cursor-pointer text-gray-300 transition-colors',
+                                      player.shocked && 'text-yellow-400 fill-yellow-400'
+                                    )}
+                                    onClick={() => handleToggleShock(index, pIndex)}
+                                  />
+                                </TableCell>
                               </TableRow>
                             )) : (
                                 <TableRow>
@@ -591,5 +644,3 @@ export default function ScoreParser() {
     </div>
   );
 }
-
-    

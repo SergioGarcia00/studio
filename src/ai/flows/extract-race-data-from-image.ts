@@ -12,7 +12,8 @@ import {z} from 'genkit';
 import {
   ExtractRaceDataFromImageInputSchema,
   ExtractRaceDataFromImageOutputSchema,
-  ValidatedRacePlayerResultSchema
+  ValidatedRacePlayerResultSchema,
+  RacePlayerResultSchema
 } from '@/ai/types';
 import type { ExtractRaceDataFromImageInput, ValidatedRacePlayerResult } from '@/ai/types';
 
@@ -32,8 +33,7 @@ const prompt = ai.definePrompt({
   - Team (e.g., "JJ (BLUE)", "DS (RED)")
   - Score for this race
   - Rank in this race (e.g., "1st", "5th")
-  - A boolean indicating if a lightning bolt (shock) icon is visible for that player in this race.
-
+  
   This image is for Race Number: {{{raceNumber}}}
   
   {{#if playerNames}}
@@ -68,6 +68,7 @@ const extractRaceDataFromImageFlow = ai.defineFlow(
     // Post-process the output to validate entries.
     const validatedData = output.map(entry => ({
       ...entry,
+      shocked: false, // Default to false, will be manually set
       isValid: !!entry.playerName && entry.playerName.trim() !== '',
     }));
 

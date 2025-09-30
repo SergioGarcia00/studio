@@ -65,11 +65,11 @@ export const RacePlayerResultSchema = z.object({
   team: z.string().describe('The team the player belongs to.'),
   score: z.number().describe('The score for this specific race.'),
   rank: z.string().describe('The rank in this specific race (e.g., "1st").'),
-  shocked: z.boolean().optional().describe('Whether a shock icon was detected for this player in this race.'),
 });
 export type RacePlayerResult = z.infer<typeof RacePlayerResultSchema>;
 
 export const ValidatedRacePlayerResultSchema = RacePlayerResultSchema.extend({
+  shocked: z.boolean().optional(),
   isValid: z.boolean(),
 });
 export type ValidatedRacePlayerResult = z.infer<typeof ValidatedRacePlayerResultSchema>;
