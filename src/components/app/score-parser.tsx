@@ -34,6 +34,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RaceResultsPreview } from './race-results-preview';
 import { findBestMatch } from 'string-similarity';
+import { Textarea } from '../ui/textarea';
 
 
 type ImageQueueItem = {
@@ -48,6 +49,7 @@ type MergedPlayerInfo = {
 
 export default function ScoreParser() {
   const [images, setImages] = useState<File[]>([]);
+  const [playerNames, setPlayerNames] = useState('');
   const [extractedData, setExtractedData] = useState<ExtractedData[]>([]);
   const [mergedData, setMergedData] = useState<MergedRaceData>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -126,7 +128,7 @@ export default function ScoreParser() {
             const { bestMatch } = findBestMatch(normalizedNewName, normalizedExistingNames);
             
             // If we find a good match, use the existing canonical name.
-            if (bestMatch.rating > 0.6) { // Lowered threshold slightly for more flexibility
+            if (bestMatch.rating > 0.7) { 
                 bestMatchName = normalizedMap[bestMatch.target];
                 isNewPlayer = false;
             }
@@ -205,6 +207,7 @@ export default function ScoreParser() {
     const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
     let processedCount = 0;
     const newExtractedResults: ExtractedData[] = [];
+    const providedPlayerNames = playerNames.split(',').map(name => name.trim()).filter(name => name.length > 0);
     
     const readFileAsDataURL = (file: File): Promise<string> => {
       return new Promise((resolve, reject) => {
@@ -224,7 +227,12 @@ export default function ScoreParser() {
 
       try {
         const url = await readFileAsDataURL(file);
-        const result = await extractTableDataFromImage({ photoDataUri: url });
+        const input: Parameters<typeof extractTableDataFromImage>[0] = { photoDataUri: url };
+        if (providedPlayerNames.length > 0) {
+          input.playerNames = providedPlayerNames;
+        }
+
+        const result = await extractTableDataFromImage(input);
         
         const processedResultData = result.tableData.map(d => ({
             ...d,
@@ -345,22 +353,38 @@ export default function ScoreParser() {
                 <input id="dropzone-file" type="file" className="hidden" onChange={handleImageChange} accept="image/png, image/jpeg, image/webp" multiple />
               </label>
             </div>
-            
-            <Button onClick={handleExtractData} disabled={images.length === 0 || isLoading} className="w-full text-lg py-6">
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  2. Extract Data
-                </>
-              )}
-            </Button>
           </CardContent>
         </Card>
+
+        <Card className='shadow-lg'>
+          <CardHeader>
+            <CardTitle>Optional: Provide Player Names</CardTitle>
+            <CardDescription>Enter a comma-separated list of the 12 player names to guide the AI.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              placeholder="e.g. Player 1, Player 2, Player 3, ..."
+              value={playerNames}
+              onChange={(e) => setPlayerNames(e.target.value)}
+              rows={4}
+              disabled={isLoading}
+            />
+          </CardContent>
+        </Card>
+
+        <Button onClick={handleExtractData} disabled={images.length === 0 || isLoading} className="w-full text-lg py-6">
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-5 w-5" />
+              2. Extract Data
+            </>
+          )}
+        </Button>
 
         {images.length > 0 && !isLoading && (
           <Card className="shadow-md">
