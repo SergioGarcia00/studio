@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import {
   FileUp,
@@ -27,7 +27,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractTableDataFromImage } from '@/ai/flows/extract-table-data-from-image';
-import type { ExtractedData, Player } from '@/ai/types';
+import type { ExtractedData, RawPlayer, MergedPlayer, MergedRaceData, Player } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -42,7 +42,8 @@ type ImageQueueItem = {
 
 export default function ScoreParser() {
   const [images, setImages] = useState<File[]>([]);
-  const [extractedData, setExtractedData] = useState<ExtractedData[] | null>(null);
+  const [extractedData, setExtractedData] = useState<ExtractedData[]>([]);
+  const [mergedData, setMergedData] = useState<MergedRaceData>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -64,6 +65,45 @@ export default function ScoreParser() {
     }
   };
 
+  const updateMergedData = (newRawPlayers: RawPlayer[]) => {
+    setMergedData(prevData => {
+      const updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
+
+      for (const rawPlayer of newRawPlayers) {
+        if (!rawPlayer.isValid) continue;
+
+        const pName = rawPlayer.playerName;
+        if (!updatedData[pName]) {
+          updatedData[pName] = {
+            playerName: pName,
+            team: rawPlayer.team,
+            scores: Array(12).fill(null),
+            gp1: null,
+            gp2: null,
+            gp3: null,
+            total: null,
+            rank: null,
+            isValid: true,
+          };
+        }
+        
+        const mergedPlayer = updatedData[pName];
+        mergedPlayer.team = rawPlayer.team || mergedPlayer.team;
+        mergedPlayer.rank = rawPlayer.rank || mergedPlayer.rank;
+        mergedPlayer.total = rawPlayer.total ?? mergedPlayer.total;
+
+        // Merge GP scores
+        if (rawPlayer.gp1 !== null) mergedPlayer.gp1 = rawPlayer.gp1;
+        if (rawPlayer.gp2 !== null) mergedPlayer.gp2 = rawPlayer.gp2;
+        if (rawPlayer.gp3 !== null) mergedPlayer.gp3 = rawPlayer.gp3;
+
+        // This part is tricky without individual scores. We'll fill GPs for now.
+        // A more advanced version would diff GP totals to find individual race scores.
+      }
+      return updatedData;
+    });
+  }
+
   const handleExtractData = async () => {
     if (images.length === 0) {
       toast({
@@ -77,8 +117,6 @@ export default function ScoreParser() {
     setError(null);
     setProgress(0);
     
-    const newExtractedData: ExtractedData[] = [];
-    const maxRetriesPerImage = 2;
     const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
     let processedCount = 0;
     
@@ -91,132 +129,98 @@ export default function ScoreParser() {
       });
     };
 
-    try {
-      while (imageQueue.length > 0) {
-        const item = imageQueue.shift();
-        if (!item) continue;
+    while (imageQueue.length > 0) {
+      const item = imageQueue.shift();
+      if (!item) continue;
 
-        const { file, retries } = item;
+      const { file, retries } = item;
+      let newExtractedResult: ExtractedData | null = null;
 
-        try {
-          const url = await readFileAsDataURL(file);
-          const result = await extractTableDataFromImage({ photoDataUri: url });
-          newExtractedData.push({
-            imageUrl: url,
-            filename: file.name,
-            data: result.tableData,
-          });
-          processedCount++;
-        } catch (e: any) {
-            console.error(`Failed to process image ${file.name}:`, e);
-            if (e.message && e.message.includes('overloaded') && retries < maxRetriesPerImage) {
-                // Re-queue the image if it was an overload error and we haven't maxed out retries
-                imageQueue.push({ file, retries: retries + 1 });
-                toast({
-                    title: 'Service Busy',
-                    description: `Retrying '${file.name}'...`,
-                });
-            } else {
-                 // For non-retryable errors or maxed out retries, treat as failed but don't stop the whole batch
-                newExtractedData.push({
-                    imageUrl: URL.createObjectURL(file), // create a temp URL for preview
-                    filename: file.name,
-                    data: [], // Mark as no data extracted
-                });
-                processedCount++;
-                toast({
-                    title: `Failed to process '${file.name}'`,
-                    description: e.message || 'An unknown error occurred.',
-                    variant: 'destructive',
-                });
-            }
+      try {
+        const url = await readFileAsDataURL(file);
+        const result = await extractTableDataFromImage({ photoDataUri: url });
+        newExtractedResult = {
+          imageUrl: url,
+          filename: file.name,
+          data: result.tableData,
+        };
+
+        if(result.tableData.some(d => d.isValid)) {
+          updateMergedData(result.tableData);
         }
-        setProgress((processedCount / images.length) * 100);
-      }
+        processedCount++;
 
-      if (newExtractedData.some(d => d.data.length > 0)) {
-        setExtractedData(prevData => {
-            const combined = [...(prevData || []), ...newExtractedData];
-            const sorted = combined.sort((a,b) => {
-                // Keep original order if possible, otherwise append new ones
-                const aIndex = prevData?.findIndex(p => p.filename === a.filename) ?? -1;
-                const bIndex = prevData?.findIndex(p => p.filename === b.filename) ?? -1;
-                if(aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-                return 0;
-            });
-            return sorted;
-        });
-
-        toast({
-          title: 'Extraction Complete',
-          description: `Data processing finished for ${images.length} image(s).`,
-          className: 'bg-accent text-accent-foreground'
-        });
-        setImages([]); // Clear selection after successful processing
-      } else {
-        setError('Could not extract any data from the images. Please try other images or check the image quality.');
-        toast({
-          title: 'Extraction Failed',
-          description: 'No data could be extracted.',
-          variant: 'destructive',
-        });
+      } catch (e: any) {
+          console.error(`Failed to process image ${file.name}:`, e);
+          if (e.message && e.message.includes('overloaded') && retries < 2) {
+              imageQueue.push({ file, retries: retries + 1 });
+              toast({
+                  title: 'Service Busy',
+                  description: `Retrying '${file.name}'...`,
+              });
+          } else {
+              newExtractedResult = {
+                  imageUrl: URL.createObjectURL(file),
+                  filename: file.name,
+                  data: [],
+              };
+              processedCount++;
+              toast({
+                  title: `Failed to process '${file.name}'`,
+                  description: e.message || 'An unknown error occurred.',
+                  variant: 'destructive',
+              });
+          }
       }
-    } catch (e) {
-      console.error(e);
-      let errorMessage = 'An unexpected error occurred during the batch processing.';
-      if (e instanceof Error) {
-        errorMessage = e.message;
+      
+      if(newExtractedResult){
+          setExtractedData(prev => [...prev, newExtractedResult!]);
       }
-      setError(errorMessage);
-      toast({
-        title: 'Extraction Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+      setProgress((processedCount / images.length) * 100);
     }
+    
+    toast({
+      title: 'Extraction Complete',
+      description: `Data processing finished for ${images.length} image(s).`,
+      className: 'bg-accent text-accent-foreground'
+    });
+    setImages([]); // Clear selection
+    setIsLoading(false);
   };
 
   const handleDownloadCsv = () => {
-    if (!extractedData) return;
-    
-    const allValidData = extractedData.flatMap(result => 
-        result.data
-            .filter(p => p.isValid)
-            .map(p => ({
-                playerName: p.playerName,
-                team: p.team,
-                ...p.scores.reduce((acc, score, i) => ({ ...acc, [`race${i+1}`]: score }), {}),
-                gp1: p.gp1,
-                gp2: p.gp2,
-                gp3: p.gp3,
-                total: p.total,
-                rank: p.rank,
-                image: result.filename
-            }))
-    );
-
-    if (allValidData.length === 0) {
-      toast({
-        title: 'No valid data to export',
-        description: 'There are no valid player entries to export to CSV.',
+    if (Object.keys(mergedData).length === 0) {
+       toast({
+        title: 'No data to export',
+        description: 'There are no player entries to export to CSV.',
         variant: 'destructive',
       });
       return;
     }
+
+    const allValidData = Object.values(mergedData).map(p => ({
+        playerName: p.playerName,
+        team: p.team,
+        ...Array.from({length: 12}).reduce((acc, _, i) => ({ ...acc, [`race${i+1}`]: p.scores[i] }), {}),
+        gp1: p.gp1,
+        gp2: p.gp2,
+        gp3: p.gp3,
+        total: p.total,
+        rank: p.rank,
+    }));
     
     const headers = [
         'Player Name', 'Team',
         ...Array.from({length: 12}, (_, i) => `Race ${i+1}`),
-        'GP1', 'GP2', 'GP3', 'Total', 'Rank', 'Image'
+        'GP1', 'GP2', 'GP3', 'Total', 'Rank'
     ];
     
-    exportToCsv(allValidData, 'scores.csv', headers);
+    exportToCsv(allValidData, 'merged_scores.csv', headers);
   };
   
   const handleClearResults = () => {
-    setExtractedData(null);
+    setExtractedData([]);
+    setMergedData({});
     setImages([]);
     setError(null);
     setProgress(0);
@@ -226,7 +230,7 @@ export default function ScoreParser() {
     });
   }
 
-  const allPlayers = extractedData?.flatMap(d => d.data.filter(p => p.isValid)) || [];
+  const allPlayers = useMemo(() => Object.values(mergedData), [mergedData]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
@@ -301,7 +305,7 @@ export default function ScoreParser() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {extractedData && !isLoading && (
+        {extractedData.length > 0 && !isLoading && (
           <Card className="shadow-lg">
             <CardHeader>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -321,7 +325,7 @@ export default function ScoreParser() {
                             <DialogHeader>
                                 <DialogTitle>Race Results Preview</DialogTitle>
                             </DialogHeader>
-                            <RaceResultsPreview data={allPlayers} />
+                            <RaceResultsPreview data={allPlayers as Player[]} />
                         </DialogContent>
                     </Dialog>
                     <Button onClick={handleDownloadCsv} disabled={allPlayers.length === 0}>
@@ -358,6 +362,9 @@ export default function ScoreParser() {
                               <TableHead className="w-[120px]">Status</TableHead>
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
+                              <TableHead>GP1</TableHead>
+                              <TableHead>GP2</TableHead>
+                              <TableHead>GP3</TableHead>
                               <TableHead className="text-right">Total</TableHead>
                               <TableHead>Rank</TableHead>
                             </TableRow>
@@ -378,12 +385,15 @@ export default function ScoreParser() {
                                 </TableCell>
                                 <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
                                 <TableCell>{player.team || 'N/A'}</TableCell>
+                                <TableCell className="font-mono">{player.gp1 ?? '-'}</TableCell>
+                                <TableCell className="font-mono">{player.gp2 ?? '-'}</TableCell>
+                                <TableCell className="font-mono">{player.gp3 ?? '-'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.total ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
                               </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    <TableCell colSpan={8} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
                                 </TableRow>
                             )}
                           </TableBody>
@@ -396,7 +406,7 @@ export default function ScoreParser() {
             </CardContent>
           </Card>
         )}
-        {!isLoading && !extractedData && (
+        {!isLoading && extractedData.length === 0 && (
           <Card className="flex flex-col items-center justify-center h-full min-h-[400px] border-dashed shadow-inner">
             <CardContent className="text-center p-6">
               {images.length > 0 ? 

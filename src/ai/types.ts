@@ -1,4 +1,3 @@
-'use server';
 
 import {z} from 'genkit';
 
@@ -30,27 +29,52 @@ export const ExtractTableDataFromImageInputSchema = z.object({
 });
 export type ExtractTableDataFromImageInput = z.infer<typeof ExtractTableDataFromImageInputSchema>;
 
-const PlayerSchema = z.object({
+// Raw data from AI
+export const RawPlayerSchema = z.object({
   playerName: z.string().describe('The name of the player.'),
   team: z.string().describe('The team the player belongs to.'),
-  scores: z.array(z.number().nullable()).length(12).describe('An array of 12 race scores. Use null for empty scores.'),
-  gp1: z.number().describe('The total for Grand Prix 1 (races 1-4).'),
-  gp2: z.number().describe('The total for Grand Prix 2 (races 5-8).'),
-  gp3: z.number().describe('The total for Grand Prix 3 (races 9-12).'),
+  gp1: z.number().nullable().describe('The total for Grand Prix 1 (races 1-4). Null if not available.'),
+  gp2: z.number().nullable().describe('The total for Grand Prix 2 (races 5-8). Null if not available.'),
+  gp3: z.number().nullable().describe('The total for Grand Prix 3 (races 9-12). Null if not available.'),
   total: z.number().describe('The total score for the player.'),
   rank: z.string().describe('The rank of the player (e.g., "1st", "2nd").'),
-  isValid: z.boolean().describe('Whether or not the record is valid'),
+});
+export type RawPlayer = z.infer<typeof RawPlayerSchema>;
+
+// Processed data for client, includes validity check
+export const ProcessedPlayerSchema = RawPlayerSchema.extend({
+    isValid: z.boolean().describe('Whether or not the record is valid'),
+});
+export type ProcessedPlayer = z.infer<typeof ProcessedPlayerSchema>;
+
+
+// Final merged data for display
+export const PlayerSchema = z.object({
+  playerName: z.string(),
+  team: z.string(),
+  scores: z.array(z.number().nullable()).length(12),
+  gp1: z.number().nullable(),
+  gp2: z.number().nullable(),
+  gp3: z.number().nullable(),
+  total: z.number().nullable(),
+  rank: z.string().nullable(),
+  isValid: z.boolean(),
 });
 export type Player = z.infer<typeof PlayerSchema>;
 
-
 export const ExtractTableDataFromImageOutputSchema = z.object({
-  tableData: z.array(PlayerSchema).describe('The extracted table data containing player names, teams, scores, and ranks.'),
+  tableData: z.array(RawPlayerSchema).describe('The extracted table data containing player names, teams, scores, and ranks.'),
 });
 export type ExtractTableDataFromImageOutput = z.infer<typeof ExtractTableDataFromImageOutputSchema>;
 
 export type ExtractedData = {
   imageUrl: string;
   filename: string;
-  data: Player[];
+  data: ProcessedPlayer[];
 };
+
+export type MergedPlayer = Player;
+
+export type MergedRaceData = {
+  [playerName: string]: MergedPlayer;
+}
