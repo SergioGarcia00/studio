@@ -27,7 +27,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractTableDataFromImage } from '@/ai/flows/extract-table-data-from-image';
-import type { ExtractedData, RawPlayer, MergedPlayer, MergedRaceData, Player } from '@/ai/types';
+import type { ExtractedData, RawPlayer, MergedPlayer, MergedRaceData, Player, ProcessedPlayer } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -65,7 +65,7 @@ export default function ScoreParser() {
     }
   };
 
-  const updateMergedData = (newRawPlayers: RawPlayer[]) => {
+  const updateMergedData = (newRawPlayers: ProcessedPlayer[]) => {
     setMergedData(prevData => {
       const updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
 
@@ -96,9 +96,6 @@ export default function ScoreParser() {
         if (rawPlayer.gp1 !== null) mergedPlayer.gp1 = rawPlayer.gp1;
         if (rawPlayer.gp2 !== null) mergedPlayer.gp2 = rawPlayer.gp2;
         if (rawPlayer.gp3 !== null) mergedPlayer.gp3 = rawPlayer.gp3;
-
-        // This part is tricky without individual scores. We'll fill GPs for now.
-        // A more advanced version would diff GP totals to find individual race scores.
       }
       return updatedData;
     });
@@ -119,6 +116,7 @@ export default function ScoreParser() {
     
     const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
     let processedCount = 0;
+    const newExtractedResults: ExtractedData[] = [];
     
     const readFileAsDataURL = (file: File): Promise<string> => {
       return new Promise((resolve, reject) => {
@@ -139,14 +137,20 @@ export default function ScoreParser() {
       try {
         const url = await readFileAsDataURL(file);
         const result = await extractTableDataFromImage({ photoDataUri: url });
+        
+        const processedResultData = result.tableData.map(d => ({
+            ...d,
+            isValid: !!d.playerName && d.playerName.trim() !== '',
+        }));
+
         newExtractedResult = {
           imageUrl: url,
           filename: file.name,
-          data: result.tableData,
+          data: processedResultData,
         };
 
-        if(result.tableData.some(d => d.isValid)) {
-          updateMergedData(result.tableData);
+        if(processedResultData.some(d => d.isValid)) {
+          updateMergedData(processedResultData);
         }
         processedCount++;
 
@@ -174,11 +178,13 @@ export default function ScoreParser() {
       }
       
       if(newExtractedResult){
-          setExtractedData(prev => [...prev, newExtractedResult!]);
+          newExtractedResults.push(newExtractedResult);
       }
       setProgress((processedCount / images.length) * 100);
     }
     
+    setExtractedData(prev => [...prev, ...newExtractedResults]);
+
     toast({
       title: 'Extraction Complete',
       description: `Data processing finished for ${images.length} image(s).`,
@@ -359,7 +365,6 @@ export default function ScoreParser() {
                         <Table>
                           <TableHeader className='sticky top-0 bg-card'>
                             <TableRow>
-                              <TableHead className="w-[120px]">Status</TableHead>
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
                               <TableHead className="text-right">Total</TableHead>
@@ -369,17 +374,6 @@ export default function ScoreParser() {
                           <TableBody>
                             {result.data.length > 0 ? result.data.map((player, pIndex) => (
                               <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
-                                <TableCell>
-                                  {player.isValid ? (
-                                    <span className="flex items-center font-medium text-emerald-600">
-                                      <CheckCircle2 className="h-4 w-4 mr-2" /> Valid
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center font-medium text-destructive">
-                                      <XCircle className="h-4 w-4 mr-2" /> Invalid
-                                    </span>
-                                  )}
-                                </TableCell>
                                 <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
                                 <TableCell>{player.team || 'N/A'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.total ?? 'N/A'}</TableCell>
@@ -387,7 +381,7 @@ export default function ScoreParser() {
                               </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    <TableCell colSpan={4} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
                                 </TableRow>
                             )}
                           </TableBody>
@@ -427,3 +421,5 @@ export default function ScoreParser() {
     </div>
   );
 }
+
+    
