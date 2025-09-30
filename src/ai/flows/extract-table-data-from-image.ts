@@ -34,6 +34,7 @@ const prompt = ai.definePrompt({
   - GP3 Total (sum of races 9-12). If not present, use null.
   - Final Rank (e.g., "1st", "5th")
   - Final Total Score
+  - An array of numbers representing the races where a lightning bolt (shock) icon is visible for that player. For example, if a player has a shock in Race 3, include 3 in the 'shockedRaces' array.
   
   Some rows are summary rows for the whole team (e.g., "JJ Overall", "Race Difference"). Ignore these rows and only extract data for individual players. Do not include them in the output.
 

@@ -13,6 +13,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import React from 'react';
+import { Zap } from 'lucide-react';
 
 interface RaceResultsPreviewProps {
   data: Player[];
@@ -71,7 +72,14 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                   <TableRow key={pIndex}>
                     <TableCell className="font-medium">{player.playerName}</TableCell>
                     {player.scores.map((score, sIndex) => (
-                        <TableCell key={sIndex} className="text-center font-mono">{score ?? '-'}</TableCell>
+                        <TableCell key={sIndex} className="text-center font-mono">
+                          <div className='flex items-center justify-center gap-1'>
+                            {score ?? '-'}
+                            {player.shocks.includes(sIndex + 1) && (
+                              <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                            )}
+                          </div>
+                        </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold">{player.gp1 ?? '-'}</TableCell>
                     <TableCell className="text-center font-mono font-bold">{player.gp2 ?? '-'}</TableCell>

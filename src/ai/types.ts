@@ -1,4 +1,3 @@
-
 import {z} from 'genkit';
 
 export const PlayerEntrySchema = z.object({
@@ -38,6 +37,7 @@ export const RawPlayerSchema = z.object({
   gp3: z.number().nullable().describe('The total for Grand Prix 3 (races 9-12). Null if not available.'),
   total: z.number().describe('The total score for the player.'),
   rank: z.string().describe('The rank of the player (e.g., "1st", "2nd").'),
+  shockedRaces: z.array(z.number()).optional().describe('An array of race numbers where a shock icon was detected for this player.'),
 });
 export type RawPlayer = z.infer<typeof RawPlayerSchema>;
 
@@ -53,6 +53,7 @@ export const PlayerSchema = z.object({
   playerName: z.string(),
   team: z.string(),
   scores: z.array(z.number().nullable()).length(12),
+  shocks: z.array(z.number()), // Array of race numbers with shocks
   gp1: z.number().nullable(),
   gp2: z.number().nullable(),
   gp3: z.number().nullable(),

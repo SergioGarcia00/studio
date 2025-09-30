@@ -89,6 +89,7 @@ export default function ScoreParser() {
                 playerName: bestMatchName,
                 team: rawPlayer.team,
                 scores: Array(12).fill(null),
+                shocks: [],
                 gp1: null,
                 gp2: null,
                 gp3: null,
@@ -106,6 +107,14 @@ export default function ScoreParser() {
         if (rawPlayer.gp1 !== null) mergedPlayer.gp1 = rawPlayer.gp1;
         if (rawPlayer.gp2 !== null) mergedPlayer.gp2 = rawPlayer.gp2;
         if (rawPlayer.gp3 !== null) mergedPlayer.gp3 = rawPlayer.gp3;
+        
+        if(rawPlayer.shockedRaces && rawPlayer.shockedRaces.length > 0) {
+            rawPlayer.shockedRaces.forEach(raceNum => {
+                if (!mergedPlayer.shocks.includes(raceNum)) {
+                    mergedPlayer.shocks.push(raceNum);
+                }
+            });
+        }
       }
       
       // If we have more than 12 players, try to merge them
@@ -129,6 +138,15 @@ export default function ScoreParser() {
                   playerToKeep.total = playerToKeep.total ?? playerToMerge.total;
                   playerToKeep.rank = playerToKeep.rank ?? playerToMerge.rank;
                   playerToKeep.team = playerToKeep.team || playerToMerge.team;
+
+                  // Merge shocks
+                  if (playerToMerge.shocks) {
+                      playerToMerge.shocks.forEach(shock => {
+                          if (!playerToKeep.shocks.includes(shock)) {
+                              playerToKeep.shocks.push(shock);
+                          }
+                      });
+                  }
 
                   delete updatedData[playerToMergeName];
                   merged = true;
@@ -465,5 +483,3 @@ export default function ScoreParser() {
     </div>
   );
 }
-
-    
