@@ -163,8 +163,9 @@ export default function ScoreParser() {
         if (raceNumber >= 1 && raceNumber <= 12) {
           mergedPlayer.ranks[raceNumber - 1] = racePlayer.rank;
         }
-
-        if (!mergedPlayer.team && racePlayer.team) {
+        
+        // Only update the team if it's not already set to a more specific value
+        if (racePlayer.team && (!mergedPlayer.team || !mergedPlayer.team.includes('('))) {
             mergedPlayer.team = racePlayer.team;
         }
         
