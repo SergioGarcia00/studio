@@ -1,5 +1,5 @@
 type CsvData = {
-  [key: string]: string | number;
+  [key: string]: string | number | null | undefined;
 };
 
 export function exportToCsv(data: CsvData[], filename: string, headers: string[]) {
@@ -16,8 +16,15 @@ export function exportToCsv(data: CsvData[], filename: string, headers: string[]
   };
 
   const header = headers.join(',') + '\n';
-  const dataKeys = ['rank', 'playerName', 'team', 'score', 'image'];
   
+  // Create a map from header to data key. This is more robust.
+  const dataKeys = headers.map(h => {
+    if (h === 'Player Name') return 'playerName';
+    if (h === 'Image') return 'image';
+    if (h.startsWith('Race ')) return `race${h.split(' ')[1]}`;
+    return h.toLowerCase();
+  });
+
   const rows = data
     .map(row => 
       dataKeys.map(key => sanitize(row[key])).join(',')

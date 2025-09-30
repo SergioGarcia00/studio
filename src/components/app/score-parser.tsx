@@ -11,6 +11,7 @@ import {
   XCircle,
   FileImage,
   ServerCrash,
+  TableIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -29,9 +30,11 @@ import type { ExtractTableDataFromImageOutput } from '@/ai/flows/extract-table-d
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { RaceResultsPreview } from './race-results-preview';
 
 type Player = ExtractTableDataFromImageOutput['tableData'][0];
-type ExtractedData = {
+export type ExtractedData = {
   imageUrl: string;
   filename: string;
   data: Player[];
@@ -78,7 +81,6 @@ export default function ScoreParser() {
     
     const allData: ExtractedData[] = [];
     
-    // Create a function to read file as data URL
     const readFileAsDataURL = (file: File): Promise<string> => {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -148,10 +150,14 @@ export default function ScoreParser() {
         result.data
             .filter(p => p.isValid)
             .map(p => ({
-                rank: p.rank,
                 playerName: p.playerName,
                 team: p.team,
-                score: p.score,
+                ...p.scores.reduce((acc, score, i) => ({ ...acc, [`race${i+1}`]: score }), {}),
+                gp1: p.gp1,
+                gp2: p.gp2,
+                gp3: p.gp3,
+                total: p.total,
+                rank: p.rank,
                 image: result.filename
             }))
     );
@@ -165,8 +171,16 @@ export default function ScoreParser() {
       return;
     }
     
-    exportToCsv(allValidData, 'scores.csv', ['Rank', 'Player Name', 'Team', 'Score', 'Image']);
+    const headers = [
+        'Player Name', 'Team',
+        ...Array.from({length: 12}, (_, i) => `Race ${i+1}`),
+        'GP1', 'GP2', 'GP3', 'Total', 'Rank', 'Image'
+    ];
+    
+    exportToCsv(allValidData, 'scores.csv', headers);
   };
+  
+  const allPlayers = extractedData?.flatMap(d => d.data.filter(p => p.isValid)) || [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
@@ -229,7 +243,7 @@ export default function ScoreParser() {
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center pt-10">
                     <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
-                    <p className='text-muted-foreground mb-4'>Processing image {Math.floor(progress / (100 / images.length))} of {images.length}... ({Math.round(progress)}%)</p>
+                    <p className='text-muted-foreground mb-4'>Processing image {Math.min(Math.floor(progress / (100 / images.length)) + 1, images.length)} of {images.length}... ({Math.round(progress)}%)</p>
                     <Progress value={progress} className="w-3/4" />
                 </CardContent>
             </Card>
@@ -247,12 +261,28 @@ export default function ScoreParser() {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <CardTitle>3. Review & Download</CardTitle>
-                  <CardDescription>Review the extracted data and download the CSV.</CardDescription>
+                  <CardDescription>Review extracted data and download or preview results.</CardDescription>
                 </div>
-                <Button onClick={handleDownloadCsv} disabled={!extractedData || extractedData.flatMap(r => r.data).filter(p => p.isValid).length === 0}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download All as CSV
-                </Button>
+                <div className='flex items-center gap-2'>
+                   <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" disabled={allPlayers.length === 0}>
+                                <TableIcon className="mr-2 h-4 w-4" />
+                                Preview Results
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-7xl">
+                            <DialogHeader>
+                                <DialogTitle>Race Results Preview</DialogTitle>
+                            </DialogHeader>
+                            <RaceResultsPreview data={allPlayers} />
+                        </DialogContent>
+                    </Dialog>
+                    <Button onClick={handleDownloadCsv} disabled={allPlayers.length === 0}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download CSV
+                    </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -275,17 +305,16 @@ export default function ScoreParser() {
                         <Table>
                           <TableHeader className='sticky top-0 bg-card'>
                             <TableRow>
-                              <TableHead className="w-[50px]">Rank</TableHead>
                               <TableHead className="w-[120px]">Status</TableHead>
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
-                              <TableHead className="text-right">Score</TableHead>
+                              <TableHead className="text-right">Total</TableHead>
+                              <TableHead>Rank</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {result.data.length > 0 ? result.data.map((player, pIndex) => (
                               <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
-                                <TableCell className='font-bold'>{player.rank}</TableCell>
                                 <TableCell>
                                   {player.isValid ? (
                                     <span className="flex items-center font-medium text-emerald-600">
@@ -299,7 +328,8 @@ export default function ScoreParser() {
                                 </TableCell>
                                 <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
                                 <TableCell>{player.team || 'N/A'}</TableCell>
-                                <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
+                                <TableCell className="text-right font-mono">{player.total ?? 'N/A'}</TableCell>
+                                <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
                               </TableRow>
                             )) : (
                                 <TableRow>
