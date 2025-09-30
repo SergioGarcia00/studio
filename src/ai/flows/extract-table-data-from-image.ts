@@ -71,7 +71,7 @@ const extractTableDataFromImageFlow = ai.defineFlow(
         break; // Success, exit loop
       } catch (e: any) {
         lastError = e;
-        if (e.message && (e.message.includes('503') || e.message.toLowerCase().includes('overloaded'))) {
+        if (e.message && (e.message.includes('503') || e.message.toLowerCase().includes('overloaded') || e.message.includes('429'))) {
           attempt++;
           if (attempt < maxRetries) {
             const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
