@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import {
   FileUp,
@@ -41,6 +41,10 @@ type ImageQueueItem = {
   retries: number;
 };
 
+type MergedPlayerInfo = {
+  from: string;
+  to: string;
+};
 
 export default function ScoreParser() {
   const [images, setImages] = useState<File[]>([]);
@@ -49,7 +53,18 @@ export default function ScoreParser() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [lastForcedMerge, setLastForcedMerge] = useState<MergedPlayerInfo | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (lastForcedMerge) {
+      toast({
+        title: 'Player Merged',
+        description: `"${lastForcedMerge.from}" was merged with "${lastForcedMerge.to}" to keep the player count at 12.`,
+      });
+      setLastForcedMerge(null); // Reset after showing toast
+    }
+  }, [lastForcedMerge, toast]);
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -84,6 +99,8 @@ export default function ScoreParser() {
 
 
   const updateMergedData = (newRawPlayers: ProcessedPlayer[]) => {
+    const newForcedMerges: MergedPlayerInfo[] = [];
+    
     setMergedData(prevData => {
       let updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
       const existingPlayerNames = Object.keys(updatedData);
@@ -121,10 +138,8 @@ export default function ScoreParser() {
             const { bestMatch } = findBestMatch(normalizedNewName, normalizedExistingNames);
             bestMatchName = normalizedMap[bestMatch.target];
             isNewPlayer = false;
-             toast({
-              title: 'Player Merged',
-              description: `"${rawPlayer.playerName}" was merged with "${bestMatchName}" to keep the player count at 12.`,
-            });
+            
+            newForcedMerges.push({ from: rawPlayer.playerName, to: bestMatchName });
         }
 
 
@@ -167,6 +182,11 @@ export default function ScoreParser() {
 
       return updatedData;
     });
+
+    if (newForcedMerges.length > 0) {
+      // We only show the last merge toast to avoid spamming
+      setLastForcedMerge(newForcedMerges[newForcedMerges.length - 1]);
+    }
   }
 
   const handleExtractData = async () => {
