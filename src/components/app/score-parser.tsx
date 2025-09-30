@@ -33,6 +33,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RaceResultsPreview } from './race-results-preview';
+import { findBestMatch } from 'string-similarity';
+
 
 type ImageQueueItem = {
   file: File;
@@ -67,36 +69,78 @@ export default function ScoreParser() {
 
   const updateMergedData = (newRawPlayers: ProcessedPlayer[]) => {
     setMergedData(prevData => {
-      const updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
+      let updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
+      const existingPlayerNames = Object.keys(updatedData);
 
       for (const rawPlayer of newRawPlayers) {
-        if (!rawPlayer.isValid) continue;
+        if (!rawPlayer.isValid || !rawPlayer.playerName) continue;
 
-        const pName = rawPlayer.playerName;
-        if (!updatedData[pName]) {
-          updatedData[pName] = {
-            playerName: pName,
-            team: rawPlayer.team,
-            scores: Array(12).fill(null),
-            gp1: null,
-            gp2: null,
-            gp3: null,
-            total: null,
-            rank: null,
-            isValid: true,
-          };
+        let bestMatchName = rawPlayer.playerName;
+
+        if (existingPlayerNames.length > 0) {
+            const { bestMatch } = findBestMatch(rawPlayer.playerName, existingPlayerNames);
+            if (bestMatch.rating > 0.7) { // Similarity threshold
+                bestMatchName = bestMatch.target;
+            }
         }
         
-        const mergedPlayer = updatedData[pName];
+        if (!updatedData[bestMatchName]) {
+            updatedData[bestMatchName] = {
+                playerName: bestMatchName,
+                team: rawPlayer.team,
+                scores: Array(12).fill(null),
+                gp1: null,
+                gp2: null,
+                gp3: null,
+                total: null,
+                rank: null,
+                isValid: true,
+            };
+        }
+        
+        const mergedPlayer = updatedData[bestMatchName];
         mergedPlayer.team = rawPlayer.team || mergedPlayer.team;
         mergedPlayer.rank = rawPlayer.rank || mergedPlayer.rank;
         mergedPlayer.total = rawPlayer.total ?? mergedPlayer.total;
 
-        // Merge GP scores
         if (rawPlayer.gp1 !== null) mergedPlayer.gp1 = rawPlayer.gp1;
         if (rawPlayer.gp2 !== null) mergedPlayer.gp2 = rawPlayer.gp2;
         if (rawPlayer.gp3 !== null) mergedPlayer.gp3 = rawPlayer.gp3;
       }
+      
+      // If we have more than 12 players, try to merge them
+      if (Object.keys(updatedData).length > 12) {
+          const allNames = Object.keys(updatedData);
+          const { ratings } = findBestMatch(allNames[0], allNames.slice(1));
+          
+          let merged = false;
+          for (const rating of ratings) {
+              if (rating.rating > 0.7) { // High confidence merge
+                  const playerToKeepName = rating.target;
+                  const playerToMergeName = allNames[0];
+                  
+                  const playerToKeep = updatedData[playerToKeepName];
+                  const playerToMerge = updatedData[playerToMergeName];
+
+                  // Simple merge logic: prefer non-null values
+                  playerToKeep.gp1 = playerToKeep.gp1 ?? playerToMerge.gp1;
+                  playerToKeep.gp2 = playerToKeep.gp2 ?? playerToMerge.gp2;
+                  playerToKeep.gp3 = playerToKeep.gp3 ?? playerToMerge.gp3;
+                  playerToKeep.total = playerToKeep.total ?? playerToMerge.total;
+                  playerToKeep.rank = playerToKeep.rank ?? playerToMerge.rank;
+                  playerToKeep.team = playerToKeep.team || playerToMerge.team;
+
+                  delete updatedData[playerToMergeName];
+                  merged = true;
+                  break; 
+              }
+          }
+           // Re-run with a smaller subset if not merged, to avoid complex loops
+          if (!merged && Object.keys(updatedData).length > 12) {
+               console.warn("Could not automatically merge players, manual review may be needed.");
+          }
+      }
+
       return updatedData;
     });
   }
