@@ -98,12 +98,10 @@ export default function ScoreParser() {
 
   const normalizePlayerName = (name: string): string => {
     if (!name) return '';
-    // Converts to basic latin characters (e.g. ηαγzου -> nayzou)
     const normalized = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    // Removes team prefixes and non-alphanumeric characters, except spaces
     return normalized
-      .replace(/^(DS|JJ|D\$)[-\s.]*/i, '') // Remove prefixes like DS, JJ, D$
-      .replace(/[^\w\s]/gi, '') // Remove remaining non-alphanumeric chars
+      .replace(/^(DS|JJ|D\$)[-\s.]*/i, '')
+      .replace(/[^\w\s]/gi, '')
       .trim();
   }
 
@@ -162,12 +160,10 @@ export default function ScoreParser() {
         const mergedPlayer = updatedData[bestMatchName];
         if (!mergedPlayer) continue;
 
-        // Insert rank for the current race
         if (raceNumber >= 1 && raceNumber <= 12) {
           mergedPlayer.ranks[raceNumber - 1] = racePlayer.rank;
         }
 
-        // Only update the team if it's currently unassigned.
         if (!mergedPlayer.team && racePlayer.team) {
             mergedPlayer.team = racePlayer.team;
         }
@@ -179,7 +175,6 @@ export default function ScoreParser() {
         }
       }
 
-      // After updating scores, recalculate totals
       Object.values(updatedData).forEach(player => {
         const sumRanks = (arr: (string|null)[]) => arr.reduce((acc: number, rank) => acc + rankToScore(rank), 0);
         
@@ -194,11 +189,11 @@ export default function ScoreParser() {
         player.total = sumRanks(player.ranks);
       });
       
-      // Recalculate ranks based on final totals
       const sortedPlayers = Object.values(updatedData).sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
       sortedPlayers.forEach((p, index) => {
         if(updatedData[p.playerName]){
-            updatedData[p.playerName].rank = `${index + 1}${['st', 'nd', 'rd'][index] ?? 'th'}`;
+            const rankSuffix = ['st', 'nd', 'rd'][index] ?? 'th';
+            updatedData[p.playerName].rank = `${index + 1}${rankSuffix}`;
         }
       });
 
@@ -254,7 +249,6 @@ export default function ScoreParser() {
             raceNumber: raceForThisImage
         };
         
-        // Use provided names for the first race, or existing merged names for subsequent races
         const existingPlayerNames = Object.keys(mergedData);
         if (raceForThisImage === 1 && providedPlayerNames.length > 0) {
             input.playerNames = providedPlayerNames;
@@ -309,7 +303,7 @@ export default function ScoreParser() {
       setProgress((processedCount / images.length) * 100);
     }
     
-    setExtractedData(prev => [...prev, ...newExtractedResults]);
+    setExtractedData(prev => [...prev, ...newExtractedResults].sort((a,b) => a.raceNumber - b.raceNumber));
     setNextRaceNumber(currentRaceNumber);
 
     toast({
@@ -321,45 +315,38 @@ export default function ScoreParser() {
     setIsLoading(false);
   };
 
-  const handleDownloadCsv = () => {
-    const players = Object.values(mergedData);
-    if (players.length === 0) {
+  const handleDownloadSingleRaceCsv = (raceData: ExtractedData) => {
+    if (raceData.data.length === 0) {
       toast({
         title: 'No data to export',
-        description: 'There are no player entries to export to CSV.',
+        description: 'There are no player entries for this race to export to CSV.',
         variant: 'destructive',
       });
       return;
     }
-  
-    const teams = Array.from(new Set(players.map(p => p.team)));
+    
+    const allPlayersInApp = Object.values(mergedData);
+    const teams = Array.from(new Set(allPlayersInApp.map(p => p.team).filter(Boolean)));
     const teamA = teams[0] || 'Team A';
     const teamB = teams[1] || 'Team B';
-  
-    const csvData: any[] = [];
-    const timestamp = new Date().toISOString();
-  
-    players.forEach(player => {
-      player.ranks.forEach((rank, raceIndex) => {
-        if (rank !== null) {
-          const raceNumber = raceIndex + 1;
-          const shocksTeamA = players.filter(p => p.team === teamA && p.shocks.includes(raceNumber)).length;
-          const shocksTeamB = players.filter(p => p.team === teamB && p.shocks.includes(raceNumber)).length;
-  
-          csvData.push({
-            timestamp,
-            race: raceNumber,
-            team: player.team,
-            player: player.playerName,
-            delta: player.rank, // Using final rank for delta
-            score: rankToScore(rank),
-            shocks_teamA: shocksTeamA,
-            shocks_teamB: shocksTeamB,
-          });
-        }
-      });
+    
+    const shocksTeamA = raceData.data.filter(p => p.shocked && allPlayersInApp.find(ap => ap.playerName === p.playerName)?.team === teamA).length;
+    const shocksTeamB = raceData.data.filter(p => p.shocked && allPlayersInApp.find(ap => ap.playerName === p.playerName)?.team === teamB).length;
+
+
+    const csvData = raceData.data.map(player => {
+      return {
+        timestamp: new Date().toISOString(),
+        race: raceData.raceNumber,
+        team: player.team,
+        player: player.playerName,
+        delta: player.rank,
+        score: player.score,
+        shocks_teamA: shocksTeamA,
+        shocks_teamB: shocksTeamB,
+      };
     });
-  
+
     if (csvData.length === 0) {
       toast({
         title: 'No race data to export',
@@ -368,9 +355,9 @@ export default function ScoreParser() {
       });
       return;
     }
-  
+
     const headers = ['timestamp', 'race', 'team', 'player', 'delta', 'score', 'shocks_teamA', 'shocks_teamB'];
-    exportToCsv(csvData, 'race_details.csv', headers);
+    exportToCsv(csvData, `race_${raceData.raceNumber}_details.csv`, headers);
   };
   
   
@@ -502,10 +489,6 @@ export default function ScoreParser() {
                             <RaceResultsPreview data={allPlayers as Player[]} />
                         </DialogContent>
                     </Dialog>
-                    <Button onClick={handleDownloadCsv} disabled={allPlayers.length === 0}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Download CSV
-                    </Button>
                      <Button onClick={handleClearResults} variant="destructive" size="icon">
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Clear Results</span>
@@ -518,14 +501,27 @@ export default function ScoreParser() {
                 {extractedData.map((result, index) => (
                   <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
                     <AccordionTrigger>
-                        <div className='flex items-center gap-4'>
-                            <div className="relative aspect-video w-24">
-                                <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
-                            </div>
-                            <div className='text-left'>
-                                <p className='font-semibold'>{result.filename} (Race {result.raceNumber})</p>
-                                <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
-                            </div>
+                        <div className='flex items-center justify-between w-full pr-4'>
+                          <div className='flex items-center gap-4'>
+                              <div className="relative aspect-video w-24">
+                                  <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
+                              </div>
+                              <div className='text-left'>
+                                  <p className='font-semibold'>{result.filename} (Race {result.raceNumber})</p>
+                                  <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
+                              </div>
+                          </div>
+                           <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadSingleRaceCsv(result);
+                              }}
+                              aria-label="Download CSV for this race"
+                            >
+                              <Download className='h-5 w-5 text-muted-foreground' />
+                           </Button>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent>
@@ -591,3 +587,5 @@ export default function ScoreParser() {
     </div>
   );
 }
+
+    
