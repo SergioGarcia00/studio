@@ -14,6 +14,7 @@ import {
   Trash2,
   Zap,
   ImageDown,
+  TestTube2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -262,6 +263,77 @@ export default function ScoreParser() {
     }
   };
 
+  const handleGenerateDemoData = () => {
+    handleClearResults(); // Clear everything first
+    setIsLoading(true);
+
+    const demoPlayers = [
+        'Tidus', 'Yuna', 'Auron', 'Wakka', 'Lulu', 'Rikku',
+        'Jecht', 'Braska', 'Cid', 'Wedge', 'Biggs', 'Seymour'
+    ];
+
+    const newMergedData: MergedRaceData = {};
+
+    demoPlayers.forEach((name, index) => {
+        newMergedData[name] = {
+            playerName: name,
+            team: index < 6 ? 'JJ (BLUE)' : 'DS (RED)',
+            ranks: Array(12).fill(null),
+            shocks: [],
+            gp1: null, gp2: null, gp3: null,
+            total: null, rank: null, isValid: true,
+        };
+    });
+
+    const rankSuffixes = ['st', 'nd', 'rd'];
+    const getRankString = (rank: number) => `${rank}${rankSuffixes[rank - 1] || 'th'}`;
+    const allRanks = Array.from({ length: 12 }, (_, i) => getRankString(i + 1));
+
+    for (let i = 0; i < 12; i++) { // For each race
+        const shuffledRanks = [...allRanks].sort(() => Math.random() - 0.5);
+        demoPlayers.forEach((name, pIndex) => {
+            newMergedData[name].ranks[i] = shuffledRanks[pIndex];
+            // 15% chance to get a shock
+            if (Math.random() < 0.15) {
+                newMergedData[name].shocks.push(i + 1);
+            }
+        });
+    }
+    
+    // Set dummy extracted data for previewing shocks and individual race data
+    const newExtractedData: ExtractedData[] = [];
+    for (let i=0; i<12; i++) {
+        newExtractedData.push({
+            imageUrl: '',
+            filename: `Demo Race ${i + 1}`,
+            raceNumber: i + 1,
+            data: demoPlayers.map(p => ({
+                playerName: p,
+                team: newMergedData[p].team,
+                score: 0, // Not relevant for this view
+                rank: newMergedData[p].ranks[i]!,
+                shocked: newMergedData[p].shocks.includes(i + 1),
+                isValid: true,
+            }))
+        });
+    }
+
+    const finalData = recalculateAllTotals(newMergedData);
+    
+    setExtractedData(newExtractedData);
+    setMergedData(finalData);
+
+    setTimeout(() => {
+        setIsLoading(false);
+        toast({
+            title: "Demo Data Generated",
+            description: "12 races with 12 players have been created for you.",
+            className: 'bg-accent text-accent-foreground'
+        });
+    }, 500);
+  };
+
+
   const handleExtractData = async () => {
     if (images.length === 0) {
       toast({
@@ -475,10 +547,6 @@ export default function ScoreParser() {
 
   const allPlayers = useMemo(() => Object.values(mergedData), [mergedData]);
 
-  const handleDownloadPng = () => {
-    previewRef.current?.downloadAsPng();
-  };
-
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
@@ -519,19 +587,26 @@ export default function ScoreParser() {
           </CardContent>
         </Card>
 
-        <Button onClick={handleExtractData} disabled={images.length === 0 || isLoading} className="w-full text-lg py-6">
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Analyzing...
-            </>
-          ) : (
-            <>
-              <Sparkles className="mr-2 h-5 w-5" />
-              2. Extract Race Data
-            </>
-          )}
-        </Button>
+        <div className="space-y-2">
+          <Button onClick={handleExtractData} disabled={images.length === 0 || isLoading} className="w-full text-lg py-6">
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-5 w-5" />
+                2. Extract Race Data
+              </>
+            )}
+          </Button>
+          <Button onClick={handleGenerateDemoData} variant="secondary" className="w-full" disabled={isLoading}>
+            <TestTube2 className="mr-2 h-5 w-5" />
+            Generate Demo Data
+          </Button>
+        </div>
+
 
         {images.length > 0 && !isLoading && (
           <Card className="shadow-md">
@@ -553,13 +628,19 @@ export default function ScoreParser() {
         {isLoading && (
             <Card className="shadow-lg min-h-[400px]">
                 <CardHeader>
-                    <CardTitle>Extracting Data...</CardTitle>
-                    <CardDescription>The AI is analyzing your image(s). Please wait a moment.</CardDescription>
+                    <CardTitle>Processing...</CardTitle>
+                    <CardDescription>Please wait a moment.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center pt-10">
                     <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
-                    <p className='text-muted-foreground mb-4'>Processing race {Math.min(Math.floor(progress / (100 / images.length)) + nextRaceNumber, 12)} of 12... ({Math.round(progress)}%)</p>
-                    <Progress value={progress} className="w-3/4" />
+                    {images.length > 0 ? (
+                      <>
+                        <p className='text-muted-foreground mb-4'>Processing race {Math.min(Math.floor(progress / (100 / images.length)) + nextRaceNumber, 12)} of 12... ({Math.round(progress)}%)</p>
+                        <Progress value={progress} className="w-3/4" />
+                      </>
+                    ) : (
+                      <p className='text-muted-foreground'>Generating demo data...</p>
+                    )}
                 </CardContent>
             </Card>
         )}
@@ -587,16 +668,16 @@ export default function ScoreParser() {
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-7xl">
-                            <DialogHeader>
+                            <DialogHeader className="flex-row items-center justify-between">
                                 <DialogTitle>Race Results Preview</DialogTitle>
+                                <Button variant="outline" onClick={() => previewRef.current?.downloadAsPng()} disabled={allPlayers.length === 0}>
+                                    <ImageDown className="mr-2 h-4 w-4" />
+                                    Download PNG
+                                </Button>
                             </DialogHeader>
                             <RaceResultsPreview ref={previewRef} data={allPlayers as Player[]} />
                         </DialogContent>
                     </Dialog>
-                    <Button variant="outline" onClick={handleDownloadPng} disabled={allPlayers.length === 0}>
-                        <ImageDown className="mr-2 h-4 w-4" />
-                        Download PNG
-                    </Button>
                      <Button onClick={handleClearResults} variant="destructive" size="icon">
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Clear Results</span>
@@ -611,9 +692,15 @@ export default function ScoreParser() {
                     <AccordionTrigger>
                         <div className='flex items-center justify-between w-full pr-4'>
                           <div className='flex items-center gap-4'>
-                              <div className="relative aspect-video w-24">
-                                  <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
-                              </div>
+                              {result.imageUrl ? (
+                                <div className="relative aspect-video w-24">
+                                    <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
+                                </div>
+                              ) : (
+                                <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
+                                  <TestTube2 className="h-8 w-8 text-muted-foreground" />
+                                </div>
+                              )}
                               <div className='text-left'>
                                   <p className='font-semibold'>{result.filename} (Race {result.raceNumber})</p>
                                   <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
@@ -708,3 +795,5 @@ export default function ScoreParser() {
     </div>
   );
 }
+
+    
