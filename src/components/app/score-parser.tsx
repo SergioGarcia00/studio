@@ -28,13 +28,18 @@ import { extractTableDataFromImage } from '@/ai/flows/extract-table-data-from-im
 import type { ExtractTableDataFromImageOutput } from '@/ai/flows/extract-table-data-from-image';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type Player = ExtractTableDataFromImageOutput['tableData'][0];
+type ExtractedData = {
+  imageUrl: string;
+  filename: string;
+  data: Player[];
+};
 
 export default function ScoreParser() {
   const [images, setImages] = useState<File[]>([]);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [extractedData, setExtractedData] = useState<Player[] | null>(null);
+  const [extractedData, setExtractedData] = useState<ExtractedData[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -54,28 +59,11 @@ export default function ScoreParser() {
       setExtractedData(null);
       setError(null);
       setImages(fileArray);
-      
-      const fileReaders: FileReader[] = [];
-      const urls: string[] = [];
-      let filesLoaded = 0;
-
-      fileArray.forEach(file => {
-        const reader = new FileReader();
-        fileReaders.push(reader);
-        reader.onloadend = () => {
-          urls.push(reader.result as string);
-          filesLoaded++;
-          if (filesLoaded === fileArray.length) {
-            setImageUrls(urls);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
     }
   };
 
   const handleExtractData = async () => {
-    if (imageUrls.length === 0) {
+    if (images.length === 0) {
       toast({
         title: 'No images selected',
         description: 'Please upload at least one image first.',
@@ -88,26 +76,40 @@ export default function ScoreParser() {
     setExtractedData(null);
     setProgress(0);
     
-    const allData: Player[] = [];
+    const allData: ExtractedData[] = [];
+    
+    // Create a function to read file as data URL
+    const readFileAsDataURL = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    };
+
     try {
-      for (let i = 0; i < imageUrls.length; i++) {
-        const url = imageUrls[i];
+      for (let i = 0; i < images.length; i++) {
+        const file = images[i];
         try {
+          const url = await readFileAsDataURL(file);
           const result = await extractTableDataFromImage({ photoDataUri: url });
-          allData.push(...result.tableData);
+          allData.push({
+            imageUrl: url,
+            filename: file.name,
+            data: result.tableData,
+          });
         } catch (e) {
-            // If one image fails, we can choose to continue or stop.
-            // Let's log it and continue for now.
-            console.error(`Failed to process image ${i+1}:`, e);
+            console.error(`Failed to process image ${file.name}:`, e);
         }
-        setProgress(((i + 1) / imageUrls.length) * 100);
+        setProgress(((i + 1) / images.length) * 100);
       }
 
-      if (allData.length > 0) {
+      if (allData.length > 0 && allData.some(d => d.data.length > 0)) {
         setExtractedData(allData);
         toast({
           title: 'Extraction Successful',
-          description: `Player data has been extracted from ${imageUrls.length} image(s).`,
+          description: `Player data has been extracted from ${images.length} image(s).`,
           className: 'bg-accent text-accent-foreground'
         });
       } else {
@@ -122,7 +124,7 @@ export default function ScoreParser() {
       console.error(e);
       let errorMessage = 'An unknown error occurred.';
       if (e instanceof Error) {
-        if (e.message.includes('503')) {
+        if (e.message.includes('overloaded')) {
             errorMessage = 'The AI model is currently overloaded. Please try again in a moment.';
         } else {
             errorMessage = e.message;
@@ -141,8 +143,19 @@ export default function ScoreParser() {
 
   const handleDownloadCsv = () => {
     if (!extractedData) return;
-    const validData = extractedData.filter(p => p.isValid).map(({isValid, ...rest}) => rest);
-    if(validData.length === 0) {
+    
+    const allValidData = extractedData.flatMap(result => 
+        result.data
+            .filter(p => p.isValid)
+            .map(p => ({
+                playerName: p.playerName,
+                team: p.team,
+                score: p.score,
+                image: result.filename
+            }))
+    );
+
+    if (allValidData.length === 0) {
       toast({
         title: 'No valid data to export',
         description: 'There are no valid player entries to export to CSV.',
@@ -150,7 +163,8 @@ export default function ScoreParser() {
       });
       return;
     }
-    exportToCsv(validData, 'scores.csv');
+    
+    exportToCsv(allValidData, 'scores.csv', ['Player Name', 'Team', 'Score', 'Image']);
   };
 
   return (
@@ -189,15 +203,15 @@ export default function ScoreParser() {
           </CardContent>
         </Card>
 
-        {imageUrls.length > 0 && !isLoading && !extractedData && !error && (
+        {images.length > 0 && !isLoading && !extractedData && !error && (
           <Card className="shadow-md">
             <CardHeader>
-              <CardTitle>Image Previews ({imageUrls.length})</CardTitle>
+              <CardTitle>Image Previews ({images.length})</CardTitle>
             </CardHeader>
             <CardContent className='grid grid-cols-2 md:grid-cols-3 gap-2'>
-              {imageUrls.map((url, index) => (
+              {images.map((file, index) => (
                 <div key={index} className="relative aspect-video w-full">
-                  <Image src={url} alt={`Uploaded scoreboard ${index+1}`} fill className="rounded-lg object-contain" />
+                  <Image src={URL.createObjectURL(file)} alt={`Uploaded scoreboard ${index+1}`} fill className="rounded-lg object-contain" />
                 </div>
               ))}
             </CardContent>
@@ -214,7 +228,7 @@ export default function ScoreParser() {
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center pt-10">
                     <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
-                    <p className='text-muted-foreground mb-4'>Performing AI magic... ({Math.round(progress)}%)</p>
+                    <p className='text-muted-foreground mb-4'>Processing image {Math.floor(progress / (100 / images.length))} of {images.length}... ({Math.round(progress)}%)</p>
                     <Progress value={progress} className="w-3/4" />
                 </CardContent>
             </Card>
@@ -234,52 +248,75 @@ export default function ScoreParser() {
                   <CardTitle>3. Review & Download</CardTitle>
                   <CardDescription>Review the extracted data and download the CSV.</CardDescription>
                 </div>
-                <Button onClick={handleDownloadCsv} disabled={!extractedData || extractedData.filter(p => p.isValid).length === 0}>
+                <Button onClick={handleDownloadCsv} disabled={!extractedData || extractedData.flatMap(r => r.data).filter(p => p.isValid).length === 0}>
                   <Download className="mr-2 h-4 w-4" />
-                  Download CSV
+                  Download All as CSV
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className='overflow-x-auto max-h-[60vh]'>
-                <Table>
-                  <TableHeader className='sticky top-0 bg-card'>
-                    <TableRow>
-                      <TableHead className="w-[120px]">Status</TableHead>
-                      <TableHead>Player Name</TableHead>
-                      <TableHead>Team</TableHead>
-                      <TableHead className="text-right">Score</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {extractedData.map((player, index) => (
-                      <TableRow key={index} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
-                        <TableCell>
-                          {player.isValid ? (
-                            <span className="flex items-center font-medium text-emerald-600">
-                              <CheckCircle2 className="h-4 w-4 mr-2" /> Valid
-                            </span>
-                          ) : (
-                            <span className="flex items-center font-medium text-destructive">
-                              <XCircle className="h-4 w-4 mr-2" /> Invalid
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
-                        <TableCell>{player.team || 'N/A'}</TableCell>
-                        <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <Accordion type="multiple" className="w-full" defaultValue={extractedData.map((_, i) => `item-${i}`)}>
+                {extractedData.map((result, index) => (
+                  <AccordionItem value={`item-${index}`} key={index}>
+                    <AccordionTrigger>
+                        <div className='flex items-center gap-4'>
+                            <div className="relative aspect-video w-24">
+                                <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
+                            </div>
+                            <div className='text-left'>
+                                <p className='font-semibold'>{result.filename}</p>
+                                <p className='text-sm text-muted-foreground'>{result.data.length} records found</p>
+                            </div>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                       <div className='overflow-x-auto max-h-[60vh]'>
+                        <Table>
+                          <TableHeader className='sticky top-0 bg-card'>
+                            <TableRow>
+                              <TableHead className="w-[120px]">Status</TableHead>
+                              <TableHead>Player Name</TableHead>
+                              <TableHead>Team</TableHead>
+                              <TableHead className="text-right">Score</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {result.data.length > 0 ? result.data.map((player, pIndex) => (
+                              <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
+                                <TableCell>
+                                  {player.isValid ? (
+                                    <span className="flex items-center font-medium text-emerald-600">
+                                      <CheckCircle2 className="h-4 w-4 mr-2" /> Valid
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center font-medium text-destructive">
+                                      <XCircle className="h-4 w-4 mr-2" /> Invalid
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
+                                <TableCell>{player.team || 'N/A'}</TableCell>
+                                <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
+                              </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </CardContent>
           </Card>
         )}
         {!isLoading && !error && !extractedData && (
           <Card className="flex flex-col items-center justify-center h-full min-h-[400px] border-dashed shadow-inner">
             <CardContent className="text-center p-6">
-              {imageUrls.length > 0 ? 
+              {images.length > 0 ? 
                 <>
                     <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
                     <h3 className="mt-4 text-xl font-semibold">Ready to Extract</h3>
