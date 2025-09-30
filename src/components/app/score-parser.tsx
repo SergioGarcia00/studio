@@ -305,13 +305,18 @@ export default function ScoreParser() {
 
     for (let i = 0; i < 12; i++) { // For each race
         const shuffledRanks = [...allRanks].sort(() => Math.random() - 0.5);
+        
+        // Assign ranks to players for the current race
         demoPlayers.forEach((name, pIndex) => {
             newMergedData[name].ranks[i] = shuffledRanks[pIndex];
-            // 15% chance to get a shock
-            if (Math.random() < 0.15) {
-                newMergedData[name].shocks.push(i + 1);
-            }
         });
+
+        // Assign one shock per race randomly
+        if (Math.random() < 0.8) { // 80% chance for a race to have a shock
+          const shockedPlayerIndex = Math.floor(Math.random() * demoPlayers.length);
+          const shockedPlayerName = demoPlayers[shockedPlayerIndex];
+          newMergedData[shockedPlayerName].shocks.push(i + 1);
+        }
     }
     
     // Set dummy extracted data for previewing shocks and individual race data
