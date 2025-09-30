@@ -27,37 +27,56 @@ import { extractTableDataFromImage } from '@/ai/flows/extract-table-data-from-im
 import type { ExtractTableDataFromImageOutput } from '@/ai/flows/extract-table-data-from-image';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 
 type Player = ExtractTableDataFromImageOutput['tableData'][0];
 
 export default function ScoreParser() {
-  const [image, setImage] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [images, setImages] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [extractedData, setExtractedData] = useState<Player[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+    const files = event.target.files;
+    if (files) {
+      const fileArray = Array.from(files).slice(0, 12);
+      if (files.length > 12) {
+        toast({
+          title: 'Too many files',
+          description: 'You can upload a maximum of 12 images at a time.',
+          variant: 'destructive',
+        });
+      }
       setExtractedData(null);
       setError(null);
-      setImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setImages(fileArray);
+      
+      const fileReaders: FileReader[] = [];
+      const urls: string[] = [];
+      let filesLoaded = 0;
+
+      fileArray.forEach(file => {
+        const reader = new FileReader();
+        fileReaders.push(reader);
+        reader.onloadend = () => {
+          urls.push(reader.result as string);
+          filesLoaded++;
+          if (filesLoaded === fileArray.length) {
+            setImageUrls(urls);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
   const handleExtractData = async () => {
-    if (!imageUrl) {
+    if (imageUrls.length === 0) {
       toast({
-        title: 'No image selected',
-        description: 'Please upload an image first.',
+        title: 'No images selected',
+        description: 'Please upload at least one image first.',
         variant: 'destructive',
       });
       return;
@@ -66,16 +85,21 @@ export default function ScoreParser() {
     setError(null);
     setExtractedData(null);
     try {
-      const result = await extractTableDataFromImage({ photoDataUri: imageUrl });
-      if (result.tableData && result.tableData.length > 0) {
-        setExtractedData(result.tableData);
+      const results = await Promise.all(
+        imageUrls.map(url => extractTableDataFromImage({ photoDataUri: url }))
+      );
+
+      const allData = results.flatMap(result => result.tableData);
+      
+      if (allData.length > 0) {
+        setExtractedData(allData);
         toast({
           title: 'Extraction Successful',
-          description: 'Player data has been extracted from the image.',
+          description: `Player data has been extracted from ${imageUrls.length} image(s).`,
           className: 'bg-accent text-accent-foreground'
         });
       } else {
-        setError('Could not extract any data from the image. Please try another image or check the image quality.');
+        setError('Could not extract any data from the images. Please try other images or check the image quality.');
         toast({
           title: 'Extraction Failed',
           description: 'No data could be extracted.',
@@ -122,8 +146,8 @@ export default function ScoreParser() {
       <div className="lg:col-span-2 space-y-8">
         <Card className='shadow-lg'>
           <CardHeader>
-            <CardTitle>1. Upload Scoreboard</CardTitle>
-            <CardDescription>Select or drop an image file of the scoreboard.</CardDescription>
+            <CardTitle>1. Upload Scoreboards</CardTitle>
+            <CardDescription>Select or drop up to 12 images.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center justify-center w-full">
@@ -131,13 +155,13 @@ export default function ScoreParser() {
                 <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
                   <FileUp className="w-10 h-10 mb-3 text-muted-foreground" />
                   <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag & drop</p>
-                  <p className="text-xs text-muted-foreground">PNG, JPG, or WEBP</p>
+                  <p className="text-xs text-muted-foreground">PNG, JPG, or WEBP (up to 12 files)</p>
                 </div>
-                <input id="dropzone-file" type="file" className="hidden" onChange={handleImageChange} accept="image/png, image/jpeg, image/webp" />
+                <input id="dropzone-file" type="file" className="hidden" onChange={handleImageChange} accept="image/png, image/jpeg, image/webp" multiple />
               </label>
             </div>
             
-            <Button onClick={handleExtractData} disabled={!image || isLoading} className="w-full text-lg py-6">
+            <Button onClick={handleExtractData} disabled={images.length === 0 || isLoading} className="w-full text-lg py-6">
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -153,15 +177,17 @@ export default function ScoreParser() {
           </CardContent>
         </Card>
 
-        {imageUrl && !isLoading && !extractedData && !error && (
+        {imageUrls.length > 0 && !isLoading && !extractedData && !error && (
           <Card className="shadow-md">
             <CardHeader>
-              <CardTitle>Image Preview</CardTitle>
+              <CardTitle>Image Previews ({imageUrls.length})</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="relative aspect-video w-full">
-                <Image src={imageUrl} alt="Uploaded scoreboard" fill className="rounded-lg object-contain" />
-              </div>
+            <CardContent className='grid grid-cols-2 md:grid-cols-3 gap-2'>
+              {imageUrls.map((url, index) => (
+                <div key={index} className="relative aspect-video w-full">
+                  <Image src={url} alt={`Uploaded scoreboard ${index+1}`} fill className="rounded-lg object-contain" />
+                </div>
+              ))}
             </CardContent>
           </Card>
         )}
@@ -172,7 +198,7 @@ export default function ScoreParser() {
             <Card className="shadow-lg min-h-[400px]">
                 <CardHeader>
                     <CardTitle>Extracting Data...</CardTitle>
-                    <CardDescription>The AI is analyzing your image. Please wait a moment.</CardDescription>
+                    <CardDescription>The AI is analyzing your image(s). Please wait a moment.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center pt-10">
                     <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
@@ -202,9 +228,9 @@ export default function ScoreParser() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className='overflow-x-auto'>
+              <div className='overflow-x-auto max-h-[60vh]'>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className='sticky top-0 bg-card'>
                     <TableRow>
                       <TableHead className="w-[120px]">Status</TableHead>
                       <TableHead>Player Name</TableHead>
@@ -240,7 +266,7 @@ export default function ScoreParser() {
         {!isLoading && !error && !extractedData && (
           <Card className="flex flex-col items-center justify-center h-full min-h-[400px] border-dashed shadow-inner">
             <CardContent className="text-center p-6">
-              {imageUrl ? 
+              {imageUrls.length > 0 ? 
                 <>
                     <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
                     <h3 className="mt-4 text-xl font-semibold">Ready to Extract</h3>
@@ -264,3 +290,5 @@ export default function ScoreParser() {
     </div>
   );
 }
+
+    
