@@ -71,6 +71,7 @@ export type RacePlayerResult = z.infer<typeof RacePlayerResultSchema>;
 export const ValidatedRacePlayerResultSchema = RacePlayerResultSchema.extend({
   shocked: z.boolean().optional(),
   isValid: z.boolean(),
+  raceScore: z.number().optional(),
 });
 export type ValidatedRacePlayerResult = z.infer<typeof ValidatedRacePlayerResultSchema>;
 

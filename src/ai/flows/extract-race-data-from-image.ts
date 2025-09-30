@@ -12,14 +12,14 @@ import {z} from 'genkit';
 import {
   ExtractRaceDataFromImageInputSchema,
   ExtractRaceDataFromImageOutputSchema,
-  ValidatedRacePlayerResultSchema,
+  RacePlayerResult,
   RacePlayerResultSchema
 } from '@/ai/types';
-import type { ExtractRaceDataFromImageInput, ValidatedRacePlayerResult } from '@/ai/types';
+import type { ExtractRaceDataFromImageInput } from '@/ai/types';
 import { GenerateResponse } from 'genkit';
 
 
-export async function extractRaceDataFromImage(input: ExtractRaceDataFromImageInput): Promise<ValidatedRacePlayerResult[]> {
+export async function extractRaceDataFromImage(input: ExtractRaceDataFromImageInput): Promise<(RacePlayerResult & {isValid: boolean})[]> {
   return extractRaceDataFromImageFlow(input);
 }
 
@@ -32,7 +32,7 @@ const prompt = ai.definePrompt({
   You will be given an image showing the results of a single race. Your task is to extract the following for each player:
   - Player Name
   - Team (e.g., "JJ (BLUE)", "DS (RED)")
-  - Score for this race
+  - Score for this race (this is the TOTAL score up to this race, not the delta)
   - Rank in this race (e.g., "1st", "5th")
   
   This image is for Race Number: {{{raceNumber}}}
@@ -56,7 +56,7 @@ const extractRaceDataFromImageFlow = ai.defineFlow(
   {
     name: 'extractRaceDataFromImageFlow',
     inputSchema: ExtractRaceDataFromImageInputSchema,
-    outputSchema: z.array(ValidatedRacePlayerResultSchema),
+    outputSchema: z.array(RacePlayerResultSchema.extend({ isValid: z.boolean() })),
   },
   async input => {
     const maxRetries = 3;
@@ -94,7 +94,6 @@ const extractRaceDataFromImageFlow = ai.defineFlow(
     // Post-process the output to validate entries.
     const validatedData = response.output.map(entry => ({
       ...entry,
-      shocked: false, // Default to false, will be manually set
       isValid: !!entry.playerName && entry.playerName.trim() !== '',
     }));
 

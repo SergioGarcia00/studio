@@ -29,7 +29,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
-import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput } from '@/ai/types';
+import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput, RacePlayerResult } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -161,7 +161,7 @@ export default function ScoreParser() {
     return '';
   };
 
-  const updateMergedDataWithRace = useCallback((raceResults: ValidatedRacePlayerResult[], raceNumber: number, masterPlayerList: string[]) => {
+  const updateMergedDataWithRace = useCallback((raceResults: (RacePlayerResult & {isValid: boolean})[], raceNumber: number, masterPlayerList: string[]) => {
       setMergedData(prevData => {
         let updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
     
@@ -226,9 +226,9 @@ export default function ScoreParser() {
       });
   }, []);
 
-  const handleToggleShock = (raceIndex: number, playerIndex: number) => {
+  const handleToggleShock = (raceNumber: number, playerIndex: number) => {
     const updatedExtractedData = [...extractedData];
-    const targetRace = updatedExtractedData.find(r => r.raceNumber === raceIndex + 1);
+    const targetRace = updatedExtractedData.find(r => r.raceNumber === raceNumber);
     
     if(!targetRace) return;
 
@@ -240,15 +240,17 @@ export default function ScoreParser() {
 
       setMergedData(prevData => {
         const masterPlayerName = getMasterPlayerName(targetPlayerResult.playerName, Object.keys(prevData));
+        if (!masterPlayerName) return prevData;
+        
         const playerToUpdate = prevData[masterPlayerName];
 
         if (playerToUpdate) {
-            const raceNumber = targetRace.raceNumber;
-            const shockIndex = playerToUpdate.shocks.indexOf(raceNumber);
+            const shockRaceNumber = targetRace.raceNumber;
+            const shockIndex = playerToUpdate.shocks.indexOf(shockRaceNumber);
 
             if (targetPlayerResult.shocked) {
                 if (shockIndex === -1) {
-                    playerToUpdate.shocks.push(raceNumber);
+                    playerToUpdate.shocks.push(shockRaceNumber);
                 }
             } else {
                 if (shockIndex > -1) {
@@ -385,35 +387,11 @@ export default function ScoreParser() {
         }
 
         const aiResult = await extractRaceDataFromImage(input);
-
-        // Calculate delta rank logic
-        const previousExtractedData = [...extractedData, ...newExtractedResults];
         
-        const processedRaceData = aiResult.map(currentPlayer => {
-          let raceScore = 0;
-          
-          const previousRace = previousExtractedData.find(r => r.raceNumber === raceForThisImage - 1);
-          if (previousRace) {
-            const previousPlayer = previousRace.data.find(p => getMasterPlayerName(p.playerName, masterPlayerList) === getMasterPlayerName(currentPlayer.playerName, masterPlayerList));
-            if (previousPlayer) {
-              raceScore = currentPlayer.score - previousPlayer.score;
-            } else {
-              raceScore = currentPlayer.score; // First race for this player
-            }
-          } else {
-             raceScore = currentPlayer.score; // First race ever
-          }
-          
-          return { ...currentPlayer, raceScore };
-        });
-
-        processedRaceData.sort((a, b) => b.raceScore - a.raceScore);
-
-        const finalRaceData = processedRaceData.map((player, index) => {
+        const finalRaceData = aiResult.map(player => {
             const rankSuffixes = ['st', 'nd', 'rd'];
-            const rankValue = Object.keys(RANK_TO_SCORE).find(key => RANK_TO_SCORE[key] === player.raceScore);
-            
-            const rank = rankValue || `${index + 1}${rankSuffixes[index] || 'th'}`;
+            const rankValue = Object.keys(RANK_TO_SCORE).find(key => RANK_TO_SCORE[key] === player.score);
+            const rank = rankValue || `?th`;
             return {
               ...player,
               rank,
@@ -730,7 +708,6 @@ export default function ScoreParser() {
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
                               <TableHead className="text-right">Total Score</TableHead>
-                              <TableHead>Race Score</TableHead>
                               <TableHead>Rank</TableHead>
                               <TableHead>Shock</TableHead>
                             </TableRow>
@@ -741,7 +718,6 @@ export default function ScoreParser() {
                                 <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
                                 <TableCell>{player.team || 'N/A'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
-                                <TableCell className="text-right font-mono">{player.raceScore ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
                                 <TableCell>
                                    <Zap
@@ -749,13 +725,13 @@ export default function ScoreParser() {
                                       'h-4 w-4 cursor-pointer text-gray-300 transition-colors',
                                       player.shocked && 'text-yellow-400 fill-yellow-400'
                                     )}
-                                    onClick={() => handleToggleShock(index, pIndex)}
+                                    onClick={() => handleToggleShock(result.raceNumber, pIndex)}
                                   />
                                 </TableCell>
                               </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
                                 </TableRow>
                             )}
                           </TableBody>
@@ -795,5 +771,3 @@ export default function ScoreParser() {
     </div>
   );
 }
-
-    
