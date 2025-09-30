@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import {
   FileUp,
@@ -13,6 +13,7 @@ import {
   TableIcon,
   Trash2,
   Zap,
+  ImageDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -32,7 +33,7 @@ import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { RaceResultsPreview } from './race-results-preview';
+import { RaceResultsPreview, type RaceResultsPreviewRef } from './race-results-preview';
 import { Textarea } from '../ui/textarea';
 import { cn } from '@/lib/utils';
 
@@ -64,7 +65,8 @@ export default function ScoreParser() {
   const [progress, setProgress] = useState(0);
   const [nextRaceNumber, setNextRaceNumber] = useState(1);
   const { toast } = useToast();
-  
+  const previewRef = useRef<RaceResultsPreviewRef>(null);
+
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
@@ -99,7 +101,6 @@ export default function ScoreParser() {
         const gp2Ranks = player.ranks.slice(4, 8);
         const gp3Ranks = player.ranks.slice(8, 12);
         
-        // Only calculate GP totals if the last race of the GP is completed.
         player.gp1 = player.ranks[3] !== null ? sumRanks(gp1Ranks) : null;
         player.gp2 = player.ranks[7] !== null ? sumRanks(gp2Ranks) : null;
         player.gp3 = player.ranks[11] !== null ? sumRanks(gp3Ranks) : null;
@@ -131,43 +132,32 @@ export default function ScoreParser() {
   
     const normalizedNewName = normalizePlayerName(newPlayerName);
     
-    // Create a map of normalized names to original master names
     const normalizedMasterMap = masterPlayerList.reduce((acc, masterName) => {
       acc[normalizePlayerName(masterName)] = masterName;
       return acc;
     }, {} as { [key: string]: string });
   
-    // Find the best match in the normalized master list
-    let bestMatchScore = -1;
-    let bestMatchName = '';
-  
-    for (const normalizedMasterName of Object.keys(normalizedMasterMap)) {
-      // Simple similarity check
-      const score = normalizedMasterName.includes(normalizedNewName) || normalizedNewName.includes(normalizedMasterName) ? 1 : 0;
-      if (score > bestMatchScore) {
-        bestMatchScore = score;
-        bestMatchName = normalizedMasterMap[normalizedMasterName];
-      }
-    }
-  
-    // A simple heuristic: if names are very similar, consider them a match.
-    // This is a weak substitute for a proper similarity library.
+    // Try to find an exact or near-exact match first.
     const directMatch = Object.entries(normalizedMasterMap).find(([normMaster, origMaster]) => {
-      return normMaster === normalizedNewName || normMaster.startsWith(normalizedNewName) || normalizedNewName.startsWith(normMaster);
+      return normMaster === normalizedNewName || 
+             normMaster.startsWith(normalizedNewName) || 
+             normalizedNewName.startsWith(normMaster) ||
+             (normMaster.length > 5 && normMaster.includes(normalizedNewName)) ||
+             (normalizedNewName.length > 5 && normalizedNewName.includes(normMaster));
     });
 
     if (directMatch) {
       return directMatch[1];
     }
     
-    // If no good match is found, we can either return the new name
-    // or, if we need to be strict, the closest possible match.
-    // Being strict if the list is already at 12 seems reasonable.
-    if (masterPlayerList.length >= 12 && bestMatchName) {
-      return bestMatchName;
+    // If no good match is found, and we still have slots, return the new name.
+    // Otherwise, it's likely a misread player, and we shouldn't add them.
+    if (masterPlayerList.length < 12) {
+      return newPlayerName;
     }
     
-    return newPlayerName; // Or handle as a new player if appropriate
+    // If list is full and no match, return a placeholder or empty to be filtered.
+    return '';
   };
 
   const updateMergedDataWithRace = useCallback((raceResults: ValidatedRacePlayerResult[], raceNumber: number, masterPlayerList: string[]) => {
@@ -194,8 +184,13 @@ export default function ScoreParser() {
           if (!racePlayer.isValid || !racePlayer.playerName) continue;
     
           const masterName = getMasterPlayerName(racePlayer.playerName, currentMasterList);
+          
+          if (!masterName) {
+            // Could not match player and list is full
+            continue;
+          }
     
-          // If player doesn't exist, create them (should only happen for first races)
+          // If player doesn't exist, create them
           if (!updatedData[masterName]) {
              if (Object.keys(updatedData).length < 12) {
                 updatedData[masterName] = {
@@ -207,7 +202,6 @@ export default function ScoreParser() {
                   total: null, rank: null, isValid: true,
                 };
              } else {
-                // Cannot add more than 12 players, skip
                 continue;
              }
           }
@@ -218,9 +212,11 @@ export default function ScoreParser() {
             mergedPlayer.ranks[raceNumber - 1] = racePlayer.rank;
           }
     
-          // Lock in the team name once a valid one is found
+          // Lock in the team name once a valid one with a color is found
           if (racePlayer.team && (mergedPlayer.team === 'Unassigned' || !mergedPlayer.team.includes('('))) {
-            mergedPlayer.team = racePlayer.team;
+              if (racePlayer.team.includes('(BLUE)') || racePlayer.team.includes('(RED)')) {
+                mergedPlayer.team = racePlayer.team;
+              }
           }
         }
     
@@ -231,7 +227,10 @@ export default function ScoreParser() {
 
   const handleToggleShock = (raceIndex: number, playerIndex: number) => {
     const updatedExtractedData = [...extractedData];
-    const targetRace = updatedExtractedData[raceIndex];
+    const targetRace = updatedExtractedData.find(r => r.raceNumber === raceIndex + 1);
+    
+    if(!targetRace) return;
+
     const targetPlayerResult = targetRace.data[playerIndex];
 
     if (targetPlayerResult) {
@@ -291,7 +290,6 @@ export default function ScoreParser() {
       });
     };
     
-    // Determine the master list of players before processing
     let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(mergedData);
 
 
@@ -320,16 +318,20 @@ export default function ScoreParser() {
         const previousExtractedData = [...extractedData, ...newExtractedResults];
         
         const processedRaceData = aiResult.map(currentPlayer => {
-          let raceScore = currentPlayer.score;
-          if (raceForThisImage > 1) {
-            const previousRace = previousExtractedData.find(r => r.raceNumber === raceForThisImage - 1);
-            if (previousRace) {
-              const previousPlayer = previousRace.data.find(p => getMasterPlayerName(p.playerName, masterPlayerList) === getMasterPlayerName(currentPlayer.playerName, masterPlayerList));
-              if (previousPlayer) {
-                raceScore = currentPlayer.score - previousPlayer.score;
-              }
+          let raceScore = 0;
+          
+          const previousRace = previousExtractedData.find(r => r.raceNumber === raceForThisImage - 1);
+          if (previousRace) {
+            const previousPlayer = previousRace.data.find(p => getMasterPlayerName(p.playerName, masterPlayerList) === getMasterPlayerName(currentPlayer.playerName, masterPlayerList));
+            if (previousPlayer) {
+              raceScore = currentPlayer.score - previousPlayer.score;
+            } else {
+              raceScore = currentPlayer.score; // First race for this player
             }
+          } else {
+             raceScore = currentPlayer.score; // First race ever
           }
+          
           return { ...currentPlayer, raceScore };
         });
 
@@ -337,11 +339,12 @@ export default function ScoreParser() {
 
         const finalRaceData = processedRaceData.map((player, index) => {
             const rankSuffixes = ['st', 'nd', 'rd'];
-            const rank = index + 1;
-            const suffix = rankSuffixes[rank - 1] || 'th';
+            const rankValue = Object.keys(RANK_TO_SCORE).find(key => RANK_TO_SCORE[key] === player.raceScore);
+            
+            const rank = rankValue || `${index + 1}${rankSuffixes[index] || 'th'}`;
             return {
               ...player,
-              rank: `${rank}${suffix}`,
+              rank,
             };
         });
         
@@ -352,7 +355,6 @@ export default function ScoreParser() {
           data: finalRaceData,
         };
         
-        // If it's the first batch of races and no master list was provided, create one from the first successful result.
         if (masterPlayerList.length === 0 && finalRaceData.some(d => d.isValid)) {
             masterPlayerList = finalRaceData.filter(r => r.isValid).map(r => r.playerName);
         }
@@ -418,8 +420,8 @@ export default function ScoreParser() {
     
     const allPlayersInApp = Object.values(mergedData);
     const teams = Array.from(new Set(allPlayersInApp.map(p => p.team).filter(Boolean)));
-    const teamA = teams[0] || 'Team A';
-    const teamB = teams[1] || 'Team B';
+    const teamA = teams.find(t => t.includes('BLUE')) || 'Team A';
+    const teamB = teams.find(t => t.includes('RED')) || 'Team B';
 
     const getPlayerTeam = (playerName: string) => {
       const masterName = getMasterPlayerName(playerName, Object.keys(mergedData));
@@ -464,6 +466,7 @@ export default function ScoreParser() {
     setError(null);
     setProgress(0);
     setNextRaceNumber(1);
+    setPlayerNames('');
     toast({
         title: "Results Cleared",
         description: "The review and download area has been cleared.",
@@ -471,6 +474,11 @@ export default function ScoreParser() {
   }
 
   const allPlayers = useMemo(() => Object.values(mergedData), [mergedData]);
+
+  const handleDownloadPng = () => {
+    previewRef.current?.downloadAsPng();
+  };
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
@@ -582,9 +590,13 @@ export default function ScoreParser() {
                             <DialogHeader>
                                 <DialogTitle>Race Results Preview</DialogTitle>
                             </DialogHeader>
-                            <RaceResultsPreview data={allPlayers as Player[]} />
+                            <RaceResultsPreview ref={previewRef} data={allPlayers as Player[]} />
                         </DialogContent>
                     </Dialog>
+                    <Button variant="outline" onClick={handleDownloadPng} disabled={allPlayers.length === 0}>
+                        <ImageDown className="mr-2 h-4 w-4" />
+                        Download PNG
+                    </Button>
                      <Button onClick={handleClearResults} variant="destructive" size="icon">
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Clear Results</span>
@@ -630,7 +642,8 @@ export default function ScoreParser() {
                             <TableRow>
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
-                              <TableHead className="text-right">Score</TableHead>
+                              <TableHead className="text-right">Total Score</TableHead>
+                              <TableHead>Race Score</TableHead>
                               <TableHead>Rank</TableHead>
                               <TableHead>Shock</TableHead>
                             </TableRow>
@@ -641,6 +654,7 @@ export default function ScoreParser() {
                                 <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
                                 <TableCell>{player.team || 'N/A'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
+                                <TableCell className="text-right font-mono">{player.raceScore ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
                                 <TableCell>
                                    <Zap
@@ -654,7 +668,7 @@ export default function ScoreParser() {
                               </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    <TableCell colSpan={6} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
                                 </TableRow>
                             )}
                           </TableBody>

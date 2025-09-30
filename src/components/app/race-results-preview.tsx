@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, forwardRef, useRef, useImperativeHandle } from 'react';
 import type { Player } from '@/ai/types';
 import {
   Table,
@@ -14,9 +14,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import React from 'react';
 import { Zap } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 interface RaceResultsPreviewProps {
   data: Player[];
+}
+
+export interface RaceResultsPreviewRef {
+  downloadAsPng: () => void;
 }
 
 const RANK_TO_SCORE: { [key: string]: number } = {
@@ -29,7 +34,28 @@ const rankToScore = (rank: string | null): number => {
     return RANK_TO_SCORE[rank] || 0;
 };
 
-export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
+export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsPreviewProps>(({ data }, ref) => {
+  const printRef = useRef<HTMLTableElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    downloadAsPng: async () => {
+      const element = printRef.current;
+      if (element) {
+        const canvas = await html2canvas(element, {
+            scale: 2,
+            backgroundColor: null,
+        });
+        const data = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = data;
+        link.download = 'race-results.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    },
+  }));
+
   const groupedData = useMemo(() => {
     const validPlayers = data.filter(player => player.isValid);
     const groups: { [key: string]: Player[] } = {};
@@ -52,7 +78,15 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
         groups[team].sort((a, b) => rankToNumber(a.rank) - rankToNumber(b.rank));
     });
     
-    return groups;
+    const teamOrder = Object.keys(groups).sort((a, b) => {
+        const aIsBlue = a.includes('BLUE');
+        const bIsBlue = b.includes('BLUE');
+        if (aIsBlue && !bIsBlue) return -1;
+        if (!aIsBlue && bIsBlue) return 1;
+        return 0;
+    });
+
+    return Object.fromEntries(teamOrder.map(team => [team, groups[team]]));
   }, [data]);
   
   const teamStats = useMemo(() => {
@@ -101,11 +135,9 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
   const hasData = Object.keys(groupedData).length > 0;
   const numColumns = 12 + 3 + 3; // 12 races + 3 GPs + Player + Rank + Total
 
-  const teamOrder = Object.keys(groupedData).sort((a,b) => a.includes('BLUE') ? -1 : b.includes('BLUE') ? 1 : 0);
-
   return (
     <ScrollArea className="h-[70vh] w-full">
-      <Table className='border-collapse border-spacing-0'>
+      <Table ref={printRef} className='border-collapse border-spacing-0 bg-card'>
         <TableHeader className='sticky top-0 bg-background z-10'>
           <TableRow>
             <TableHead className="w-[150px] font-bold text-lg sticky left-0 bg-background">Player</TableHead>
@@ -128,17 +160,16 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
         </TableHeader>
         <TableBody>
           {hasData ? (
-            <>
-            {teamOrder.map((team, tIndex) => (
+            Object.entries(groupedData).map(([team, players], tIndex) => (
               <React.Fragment key={team}>
                 <TableRow className={cn('font-bold text-lg', teamColors[team] || 'bg-muted/50')}>
                   <TableCell colSpan={numColumns} className="sticky left-0">
                     {team}
                   </TableCell>
                 </TableRow>
-                {groupedData[team].map((player, pIndex) => (
+                {players.map((player, pIndex) => (
                   <TableRow key={pIndex}>
-                    <TableCell className="font-medium sticky left-0 bg-background/95">{player.playerName}</TableCell>
+                    <TableCell className="font-medium sticky left-0 bg-card/95">{player.playerName}</TableCell>
                     {player.ranks.slice(0,4).map((rank, sIndex) => (
                         <TableCell key={sIndex} className="text-center font-mono">
                           <div className='flex items-center justify-center gap-1'>
@@ -181,7 +212,7 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                 {tIndex === 0 && (
                 <React.Fragment>
                   <TableRow className='bg-muted/20 font-bold'>
-                    <TableCell className="sticky left-0 bg-background/95">Puntos Equipo Azul</TableCell>
+                    <TableCell className="sticky left-0 bg-card/95">Puntos Equipo Azul</TableCell>
                     {teamStats.blue.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono">{s}</TableCell>)}
                     <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp1}</TableCell>
                     {teamStats.blue.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono">{s}</TableCell>)}
@@ -192,18 +223,18 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                     <TableCell className="text-center font-mono">{teamStats.blue.total}</TableCell>
                   </TableRow>
                   <TableRow className='bg-purple-500/50 font-bold'>
-                    <TableCell className="sticky left-0 bg-background/95">Diferencia</TableCell>
-                    {teamStats.diff.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono">{s}</TableCell>)}
-                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.diff.gp1}</TableCell>
-                    {teamStats.diff.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono">{s}</TableCell>)}
-                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.diff.gp2}</TableCell>
-                    {teamStats.diff.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono">{s}</TableCell>)}
-                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.diff.gp3}</TableCell>
+                    <TableCell className="sticky left-0 bg-card/95">Diferencia</TableCell>
+                    {teamStats.diff.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono">{s > 0 ? `+${s}` : s}</TableCell>)}
+                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.diff.gp1 > 0 ? `+${teamStats.diff.gp1}`: teamStats.diff.gp1}</TableCell>
+                    {teamStats.diff.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono">{s > 0 ? `+${s}` : s}</TableCell>)}
+                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.diff.gp2 > 0 ? `+${teamStats.diff.gp2}`: teamStats.diff.gp2}</TableCell>
+                    {teamStats.diff.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono">{s > 0 ? `+${s}` : s}</TableCell>)}
+                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.diff.gp3 > 0 ? `+${teamStats.diff.gp3}`: teamStats.diff.gp3}</TableCell>
                     <TableCell></TableCell>
-                    <TableCell className="text-center font-mono">{teamStats.diff.total}</TableCell>
+                    <TableCell className="text-center font-mono">{teamStats.diff.total > 0 ? `+${teamStats.diff.total}`: teamStats.diff.total}</TableCell>
                   </TableRow>
                   <TableRow className='bg-muted/20 font-bold'>
-                    <TableCell className="sticky left-0 bg-background/95">Puntos Equipo Rojo</TableCell>
+                    <TableCell className="sticky left-0 bg-card/95">Puntos Equipo Rojo</TableCell>
                      {teamStats.red.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono">{s}</TableCell>)}
                     <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp1}</TableCell>
                     {teamStats.red.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono">{s}</TableCell>)}
@@ -216,8 +247,7 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                 </React.Fragment>
                 )}
               </React.Fragment>
-            ))}
-            </>
+            ))
           ) : (
             <TableRow>
               <TableCell colSpan={numColumns} className="text-center text-muted-foreground h-24">
@@ -229,4 +259,6 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
       </Table>
     </ScrollArea>
   );
-}
+});
+
+RaceResultsPreview.displayName = 'RaceResultsPreview';
