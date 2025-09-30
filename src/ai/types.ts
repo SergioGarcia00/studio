@@ -29,7 +29,7 @@ export const ExtractTableDataFromImageInputSchema = z.object({
 });
 export type ExtractTableDataFromImageInput = z.infer<typeof ExtractTableDataFromImageInputSchema>;
 
-// Raw data from AI
+// Raw data from AI (old gp-based schema)
 export const RawPlayerSchema = z.object({
   playerName: z.string().describe('The name of the player.'),
   team: z.string().describe('The team the player belongs to.'),
@@ -41,6 +41,43 @@ export const RawPlayerSchema = z.object({
   shockedRaces: z.array(z.number()).optional().describe('An array of race numbers where a shock icon was detected for this player.'),
 });
 export type RawPlayer = z.infer<typeof RawPlayerSchema>;
+
+export const ExtractTableDataFromImageOutputSchema = z.object({
+  tableData: z.array(RawPlayerSchema).describe('The extracted table data containing player names, teams, scores, and ranks.'),
+});
+export type ExtractTableDataFromImageOutput = z.infer<typeof ExtractTableDataFromImageOutputSchema>;
+
+
+// New schema for single race extraction
+export const ExtractRaceDataFromImageInputSchema = z.object({
+  photoDataUri: z
+    .string()
+    .describe(
+      "A photo of a scoreboard, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+    ),
+  raceNumber: z.number().describe('The number of the race being processed.'),
+  playerNames: z.array(z.string()).optional().describe('An optional list of player names to help guide the OCR process.'),
+});
+export type ExtractRaceDataFromImageInput = z.infer<typeof ExtractRaceDataFromImageInputSchema>;
+
+export const RacePlayerResultSchema = z.object({
+  playerName: z.string().describe('The name of the player.'),
+  team: z.string().describe('The team the player belongs to.'),
+  score: z.number().describe('The score for this specific race.'),
+  rank: z.string().describe('The rank in this specific race (e.g., "1st").'),
+  shocked: z.boolean().optional().describe('Whether a shock icon was detected for this player in this race.'),
+});
+export type RacePlayerResult = z.infer<typeof RacePlayerResultSchema>;
+
+export const ValidatedRacePlayerResultSchema = RacePlayerResultSchema.extend({
+  isValid: z.boolean(),
+});
+export type ValidatedRacePlayerResult = z.infer<typeof ValidatedRacePlayerResultSchema>;
+
+
+export const ExtractRaceDataFromImageOutputSchema = z.array(RacePlayerResultSchema);
+export type ExtractRaceDataFromImageOutput = z.infer<typeof ExtractRaceDataFromImageOutputSchema>;
+
 
 // Processed data for client, includes validity check
 export const ProcessedPlayerSchema = RawPlayerSchema.extend({
@@ -64,15 +101,12 @@ export const PlayerSchema = z.object({
 });
 export type Player = z.infer<typeof PlayerSchema>;
 
-export const ExtractTableDataFromImageOutputSchema = z.object({
-  tableData: z.array(RawPlayerSchema).describe('The extracted table data containing player names, teams, scores, and ranks.'),
-});
-export type ExtractTableDataFromImageOutput = z.infer<typeof ExtractTableDataFromImageOutputSchema>;
 
 export type ExtractedData = {
   imageUrl: string;
   filename: string;
-  data: ProcessedPlayer[];
+  raceNumber: number;
+  data: ValidatedRacePlayerResult[];
 };
 
 export type MergedPlayer = Player;

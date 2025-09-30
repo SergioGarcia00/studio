@@ -7,7 +7,6 @@ import {
   Loader2,
   Sparkles,
   Download,
-  CheckCircle2,
   XCircle,
   FileImage,
   ServerCrash,
@@ -26,8 +25,8 @@ import {
 } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { extractTableDataFromImage } from '@/ai/flows/extract-table-data-from-image';
-import type { ExtractedData, RawPlayer, MergedPlayer, MergedRaceData, Player, ProcessedPlayer } from '@/ai/types';
+import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
+import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -56,6 +55,7 @@ export default function ScoreParser() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [lastForcedMerge, setLastForcedMerge] = useState<MergedPlayerInfo | null>(null);
+  const [nextRaceNumber, setNextRaceNumber] = useState(1);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -71,11 +71,11 @@ export default function ScoreParser() {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      const fileArray = Array.from(files).slice(0, 12);
+      const fileArray = Array.from(files).slice(0, 12 - (nextRaceNumber - 1));
       if (files.length > 12) {
         toast({
           title: 'Too many files',
-          description: 'You can upload a maximum of 12 images at a time.',
+          description: 'You can upload a maximum of 12 images in total.',
           variant: 'destructive',
         });
       }
@@ -85,29 +85,21 @@ export default function ScoreParser() {
   };
 
   const normalizePlayerName = (name: string): string => {
-    // Remove common team prefixes like "JJ", "DS", "D$" etc.
-    // This regex looks for 1-3 uppercase letters, optionally followed by a space, dash, or dollar sign, at the start of the string.
     let normalized = name.trim().replace(/^[A-Z]{1,3}[s$]?[\s\-. ]*/i, '');
-
-    // Fallback for names that might *only* be the prefix part, or simple cases
     if (normalized.length < 2) {
         normalized = name.trim();
     }
-    
-    // A final cleanup for any other special characters that might be left.
-    // This helps with things like 'D$.Yien' becoming 'Yien'
     return normalized.replace(/[^\w\s]/gi, '').trim();
   }
 
 
-  const updateMergedData = (newRawPlayers: ProcessedPlayer[]) => {
+  const updateMergedData = (raceResults: ValidatedRacePlayerResult[], raceNumber: number) => {
     const newForcedMerges: MergedPlayerInfo[] = [];
     
     setMergedData(prevData => {
       let updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
       const existingPlayerNames = Object.keys(updatedData);
 
-      // Create a mapping from normalized existing names to their original canonical name
       const normalizedMap = existingPlayerNames.reduce((acc, name) => {
           acc[normalizePlayerName(name)] = name;
           return acc;
@@ -115,41 +107,32 @@ export default function ScoreParser() {
       const normalizedExistingNames = Object.keys(normalizedMap);
 
 
-      for (const rawPlayer of newRawPlayers) {
-        if (!rawPlayer.isValid || !rawPlayer.playerName) continue;
+      for (const racePlayer of raceResults) {
+        if (!racePlayer.isValid || !racePlayer.playerName) continue;
 
-        const normalizedNewName = normalizePlayerName(rawPlayer.playerName);
-        let bestMatchName = rawPlayer.playerName; // Default to the original name
+        const normalizedNewName = normalizePlayerName(racePlayer.playerName);
+        let bestMatchName = racePlayer.playerName;
         let isNewPlayer = true;
 
-
-        // If there are existing players, try to match the new player name to an existing one.
         if (normalizedExistingNames.length > 0) {
             const { bestMatch } = findBestMatch(normalizedNewName, normalizedExistingNames);
-            
-            // If we find a good match, use the existing canonical name.
             if (bestMatch.rating > 0.7) { 
                 bestMatchName = normalizedMap[bestMatch.target];
                 isNewPlayer = false;
             }
         }
         
-        // If it's a new player and we already have 12, we should try to force a match
-        // to the most similar existing player, even if the rating is low.
         if (isNewPlayer && existingPlayerNames.length >= 12 && normalizedExistingNames.length > 0) {
             const { bestMatch } = findBestMatch(normalizedNewName, normalizedExistingNames);
             bestMatchName = normalizedMap[bestMatch.target];
             isNewPlayer = false;
-            
-            newForcedMerges.push({ from: rawPlayer.playerName, to: bestMatchName });
+            newForcedMerges.push({ from: racePlayer.playerName, to: bestMatchName });
         }
 
-
-        // If the player doesn't exist yet, create a new entry.
         if (isNewPlayer && (!updatedData[bestMatchName] || Object.keys(updatedData).length < 12)) {
             updatedData[bestMatchName] = {
-                playerName: bestMatchName, // Use the original non-normalized name for the first entry
-                team: rawPlayer.team,
+                playerName: bestMatchName,
+                team: racePlayer.team,
                 scores: Array(12).fill(null),
                 shocks: [],
                 gp1: null,
@@ -162,31 +145,50 @@ export default function ScoreParser() {
         }
         
         const mergedPlayer = updatedData[bestMatchName];
+        if (!mergedPlayer) continue;
 
-        if (!mergedPlayer) continue; // Should not happen, but a safeguard.
+        // Insert score for the current race
+        if (raceNumber >= 1 && raceNumber <= 12) {
+          mergedPlayer.scores[raceNumber - 1] = racePlayer.score;
+        }
 
-        mergedPlayer.team = rawPlayer.team || mergedPlayer.team;
-        mergedPlayer.rank = rawPlayer.rank || mergedPlayer.rank;
-        mergedPlayer.total = rawPlayer.total ?? mergedPlayer.total;
-
-        if (rawPlayer.gp1 !== null) mergedPlayer.gp1 = rawPlayer.gp1;
-        if (rawPlayer.gp2 !== null) mergedPlayer.gp2 = rawPlayer.gp2;
-        if (rawPlayer.gp3 !== null) mergedPlayer.gp3 = rawPlayer.gp3;
+        mergedPlayer.team = racePlayer.team || mergedPlayer.team;
         
-        if(rawPlayer.shockedRaces && rawPlayer.shockedRaces.length > 0) {
-            rawPlayer.shockedRaces.forEach(raceNum => {
-                if (!mergedPlayer.shocks.includes(raceNum)) {
-                    mergedPlayer.shocks.push(raceNum);
-                }
-            });
+        if(racePlayer.shocked) {
+            if (!mergedPlayer.shocks.includes(raceNumber)) {
+                mergedPlayer.shocks.push(raceNumber);
+            }
         }
       }
+
+      // After updating scores, recalculate totals
+      Object.values(updatedData).forEach(player => {
+        const sum = (arr: (number|null)[]) => arr.reduce((acc: number, val) => acc + (val ?? 0), 0);
+        
+        const gp1Scores = player.scores.slice(0, 4);
+        const gp2Scores = player.scores.slice(4, 8);
+        const gp3Scores = player.scores.slice(8, 12);
+
+        if (gp1Scores.every(s => s !== null)) player.gp1 = sum(gp1Scores);
+        if (gp2Scores.every(s => s !== null)) player.gp2 = sum(gp2Scores);
+        if (gp3Scores.every(s => s !== null)) player.gp3 = sum(gp3Scores);
+
+        player.total = sum(player.scores);
+      });
+      
+      // Recalculate ranks based on final totals
+      const sortedPlayers = Object.values(updatedData).sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+      sortedPlayers.forEach((p, index) => {
+        if(updatedData[p.playerName]){
+            updatedData[p.playerName].rank = `${index + 1}${['st', 'nd', 'rd'][index] ?? 'th'}`;
+        }
+      });
+
 
       return updatedData;
     });
 
     if (newForcedMerges.length > 0) {
-      // We only show the last merge toast to avoid spamming
       setLastForcedMerge(newForcedMerges[newForcedMerges.length - 1]);
     }
   }
@@ -208,6 +210,7 @@ export default function ScoreParser() {
     let processedCount = 0;
     const newExtractedResults: ExtractedData[] = [];
     const providedPlayerNames = playerNames.split(',').map(name => name.trim()).filter(name => name.length > 0);
+    let currentRaceNumber = nextRaceNumber;
     
     const readFileAsDataURL = (file: File): Promise<string> => {
       return new Promise((resolve, reject) => {
@@ -224,31 +227,33 @@ export default function ScoreParser() {
 
       const { file, retries } = item;
       let newExtractedResult: ExtractedData | null = null;
+      const raceForThisImage = currentRaceNumber;
 
       try {
         const url = await readFileAsDataURL(file);
-        const input: Parameters<typeof extractTableDataFromImage>[0] = { photoDataUri: url };
+        const input: Parameters<typeof extractRaceDataFromImage>[0] = { 
+            photoDataUri: url,
+            raceNumber: raceForThisImage
+        };
         if (providedPlayerNames.length > 0) {
           input.playerNames = providedPlayerNames;
         }
 
-        const result = await extractTableDataFromImage(input);
+        const result = await extractRaceDataFromImage(input);
         
-        const processedResultData = result.tableData.map(d => ({
-            ...d,
-            isValid: !!d.playerName && d.playerName.trim() !== '',
-        }));
-
         newExtractedResult = {
           imageUrl: url,
           filename: file.name,
-          data: processedResultData,
+          raceNumber: raceForThisImage,
+          data: result,
         };
-
-        if(processedResultData.some(d => d.isValid)) {
-          updateMergedData(processedResultData);
+        
+        if(result.some(d => d.isValid)) {
+          updateMergedData(result, raceForThisImage);
         }
         processedCount++;
+        currentRaceNumber++;
+
 
       } catch (e: any) {
           console.error(`Failed to process image ${file.name}:`, e);
@@ -262,6 +267,7 @@ export default function ScoreParser() {
               newExtractedResult = {
                   imageUrl: URL.createObjectURL(file),
                   filename: file.name,
+                  raceNumber: raceForThisImage,
                   data: [],
               };
               processedCount++;
@@ -280,6 +286,7 @@ export default function ScoreParser() {
     }
     
     setExtractedData(prev => [...prev, ...newExtractedResults]);
+    setNextRaceNumber(currentRaceNumber);
 
     toast({
       title: 'Extraction Complete',
@@ -293,28 +300,55 @@ export default function ScoreParser() {
   const handleDownloadCsv = () => {
     const players = Object.values(mergedData);
     if (players.length === 0) {
-       toast({
+      toast({
         title: 'No data to export',
         description: 'There are no player entries to export to CSV.',
         variant: 'destructive',
       });
       return;
     }
-
-    const csvData = players.map(player => ({
-      player_name: player.playerName,
-      team: player.team,
-      gp1: player.gp1,
-      gp2: player.gp2,
-      gp3: player.gp3,
-      total: player.total,
-      rank: player.rank,
-    }));
-    
-    const headers = ['player_name', 'team', 'gp1', 'gp2', 'gp3', 'total', 'rank'];
-    
-    exportToCsv(csvData, 'race_summary.csv', headers);
+  
+    const teams = Array.from(new Set(players.map(p => p.team)));
+    const teamA = teams[0] || 'Team A';
+    const teamB = teams[1] || 'Team B';
+  
+    const csvData: any[] = [];
+    const timestamp = new Date().toISOString();
+  
+    players.forEach(player => {
+      player.scores.forEach((score, raceIndex) => {
+        if (score !== null) {
+          const raceNumber = raceIndex + 1;
+          const shocksTeamA = players.filter(p => p.team === teamA && p.shocks.includes(raceNumber)).length;
+          const shocksTeamB = players.filter(p => p.team === teamB && p.shocks.includes(raceNumber)).length;
+  
+          csvData.push({
+            timestamp,
+            race: raceNumber,
+            team: player.team,
+            player: player.playerName,
+            delta: player.rank, // Using final rank for delta
+            score: score,
+            shocks_teamA: shocksTeamA,
+            shocks_teamB: shocksTeamB,
+          });
+        }
+      });
+    });
+  
+    if (csvData.length === 0) {
+      toast({
+        title: 'No race data to export',
+        description: 'No individual race scores have been recorded yet.',
+        variant: 'destructive',
+      });
+      return;
+    }
+  
+    const headers = ['timestamp', 'race', 'team', 'player', 'delta', 'score', 'shocks_teamA', 'shocks_teamB'];
+    exportToCsv(csvData, 'race_details.csv', headers);
   };
+  
   
   const handleClearResults = () => {
     setExtractedData([]);
@@ -322,6 +356,7 @@ export default function ScoreParser() {
     setImages([]);
     setError(null);
     setProgress(0);
+    setNextRaceNumber(1);
     toast({
         title: "Results Cleared",
         description: "The review and download area has been cleared.",
@@ -335,8 +370,8 @@ export default function ScoreParser() {
       <div className="lg:col-span-2 space-y-8">
         <Card className='shadow-lg'>
           <CardHeader>
-            <CardTitle>1. Upload Scoreboards</CardTitle>
-            <CardDescription>Select or drop up to 12 images.</CardDescription>
+            <CardTitle>1. Upload Race Scoreboards</CardTitle>
+            <CardDescription>Select or drop race images one by one or in a batch.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center justify-center w-full">
@@ -346,16 +381,17 @@ export default function ScoreParser() {
                   <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag & drop</p>
                   <p className="text-xs text-muted-foreground">PNG, JPG, or WEBP (up to 12 files)</p>
                 </div>
-                <input id="dropzone-file" type="file" className="hidden" onChange={handleImageChange} accept="image/png, image/jpeg, image/webp" multiple />
+                <input id="dropzone-file" type="file" className="hidden" onChange={handleImageChange} accept="image/png, image/jpeg, image/webp" multiple disabled={nextRaceNumber > 12} />
               </label>
             </div>
+             {nextRaceNumber > 12 && <p className='text-sm text-center text-destructive'>Maximum of 12 races reached.</p>}
           </CardContent>
         </Card>
 
         <Card className='shadow-lg'>
           <CardHeader>
             <CardTitle>Optional: Provide Player Names</CardTitle>
-            <CardDescription>Enter a comma-separated list of the 12 player names to guide the AI.</CardDescription>
+            <CardDescription>Enter a comma-separated list of the 12 player names to guide the AI. Best to do this before uploading any images.</CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea
@@ -363,7 +399,7 @@ export default function ScoreParser() {
               value={playerNames}
               onChange={(e) => setPlayerNames(e.target.value)}
               rows={4}
-              disabled={isLoading}
+              disabled={isLoading || extractedData.length > 0}
             />
           </CardContent>
         </Card>
@@ -377,7 +413,7 @@ export default function ScoreParser() {
           ) : (
             <>
               <Sparkles className="mr-2 h-5 w-5" />
-              2. Extract Data
+              2. Extract Race Data
             </>
           )}
         </Button>
@@ -385,7 +421,7 @@ export default function ScoreParser() {
         {images.length > 0 && !isLoading && (
           <Card className="shadow-md">
             <CardHeader>
-              <CardTitle>Image Previews ({images.length})</CardTitle>
+              <CardTitle>Images Queued ({images.length})</CardTitle>
             </CardHeader>
             <CardContent className='grid grid-cols-2 md:grid-cols-3 gap-2'>
               {images.map((file, index) => (
@@ -407,7 +443,7 @@ export default function ScoreParser() {
                 </CardHeader>
                 <CardContent className="flex flex-col items-center justify-center pt-10">
                     <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
-                    <p className='text-muted-foreground mb-4'>Processing image {Math.min(Math.floor(progress / (100 / images.length)) + 1, images.length)} of {images.length}... ({Math.round(progress)}%)</p>
+                    <p className='text-muted-foreground mb-4'>Processing race {Math.min(Math.floor(progress / (100 / images.length)) + nextRaceNumber, 12)} of 12... ({Math.round(progress)}%)</p>
                     <Progress value={progress} className="w-3/4" />
                 </CardContent>
             </Card>
@@ -463,7 +499,7 @@ export default function ScoreParser() {
                                 <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
                             </div>
                             <div className='text-left'>
-                                <p className='font-semibold'>{result.filename}</p>
+                                <p className='font-semibold'>{result.filename} (Race {result.raceNumber})</p>
                                 <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
                             </div>
                         </div>
@@ -475,7 +511,7 @@ export default function ScoreParser() {
                             <TableRow>
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
-                              <TableHead className="text-right">Total</TableHead>
+                              <TableHead className="text-right">Score</TableHead>
                               <TableHead>Rank</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -484,7 +520,7 @@ export default function ScoreParser() {
                               <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
                                 <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
                                 <TableCell>{player.team || 'N/A'}</TableCell>
-                                <TableCell className="text-right font-mono">{player.total ?? 'N/A'}</TableCell>
+                                <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
                               </TableRow>
                             )) : (
@@ -518,7 +554,7 @@ export default function ScoreParser() {
                     <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
                     <h3 className="mt-4 text-xl font-semibold">Results will appear here</h3>
                     <p className="mt-2 text-base text-muted-foreground">
-                        Upload an image and click "Extract Data" to see the magic.
+                        Upload race images and click "Extract Data" to see the magic.
                     </p>
                 </>
               }
