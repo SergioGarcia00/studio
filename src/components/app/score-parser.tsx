@@ -169,9 +169,9 @@ export default function ScoreParser() {
         const gp2Scores = player.scores.slice(4, 8);
         const gp3Scores = player.scores.slice(8, 12);
 
-        if (gp1Scores.every(s => s !== null)) player.gp1 = sum(gp1Scores);
-        if (gp2Scores.every(s => s !== null)) player.gp2 = sum(gp2Scores);
-        if (gp3Scores.every(s => s !== null)) player.gp3 = sum(gp3Scores);
+        if (gp1Scores.some(s => s !== null)) player.gp1 = sum(gp1Scores);
+        if (gp2Scores.some(s => s !== null)) player.gp2 = sum(gp2Scores);
+        if (gp3Scores.some(s => s !== null)) player.gp3 = sum(gp3Scores);
 
         player.total = sum(player.scores);
       });
@@ -235,9 +235,15 @@ export default function ScoreParser() {
             photoDataUri: url,
             raceNumber: raceForThisImage
         };
-        if (providedPlayerNames.length > 0) {
-          input.playerNames = providedPlayerNames;
+        
+        // Use provided names for the first race, or existing merged names for subsequent races
+        const existingPlayerNames = Object.keys(mergedData);
+        if (raceForThisImage === 1 && providedPlayerNames.length > 0) {
+            input.playerNames = providedPlayerNames;
+        } else if (existingPlayerNames.length > 0) {
+            input.playerNames = existingPlayerNames;
         }
+
 
         const result = await extractRaceDataFromImage(input);
         
@@ -513,6 +519,7 @@ export default function ScoreParser() {
                               <TableHead>Team</TableHead>
                               <TableHead className="text-right">Score</TableHead>
                               <TableHead>Rank</TableHead>
+                              <TableHead>Shock</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -522,10 +529,11 @@ export default function ScoreParser() {
                                 <TableCell>{player.team || 'N/A'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
+                                <TableCell>{player.shocked ? '⚡' : ''}</TableCell>
                               </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
                                 </TableRow>
                             )}
                           </TableBody>

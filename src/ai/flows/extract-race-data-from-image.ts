@@ -11,12 +11,13 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import {
   ExtractRaceDataFromImageInputSchema,
-  ExtractRaceDataFromImageOutputSchema
+  ExtractRaceDataFromImageOutputSchema,
+  ValidatedRacePlayerResultSchema
 } from '@/ai/types';
-import type { ExtractRaceDataFromImageInput, ExtractRaceDataFromImageOutput } from '@/ai/types';
+import type { ExtractRaceDataFromImageInput, ValidatedRacePlayerResult } from '@/ai/types';
 
 
-export async function extractRaceDataFromImage(input: ExtractRaceDataFromImageInput): Promise<ExtractRaceDataFromImageOutput> {
+export async function extractRaceDataFromImage(input: ExtractRaceDataFromImageInput): Promise<ValidatedRacePlayerResult[]> {
   return extractRaceDataFromImageFlow(input);
 }
 
@@ -31,7 +32,7 @@ const prompt = ai.definePrompt({
   - Team (e.g., "JJ (BLUE)", "DS (RED)")
   - Score for this race
   - Rank in this race (e.g., "1st", "5th")
-  - An array of numbers representing the races where a lightning bolt (shock) icon is visible for that player. For example, if a player has a shock in Race 3, include 3 in the 'shockedRaces' array.
+  - A boolean indicating if a lightning bolt (shock) icon is visible for that player in this race.
 
   This image is for Race Number: {{{raceNumber}}}
   
@@ -54,7 +55,7 @@ const extractRaceDataFromImageFlow = ai.defineFlow(
   {
     name: 'extractRaceDataFromImageFlow',
     inputSchema: ExtractRaceDataFromImageInputSchema,
-    outputSchema: ExtractRaceDataFromImageOutputSchema,
+    outputSchema: z.array(ValidatedRacePlayerResultSchema),
   },
   async input => {
     const result = await prompt(input);

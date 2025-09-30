@@ -76,7 +76,6 @@ export type ValidatedRacePlayerResult = z.infer<typeof ValidatedRacePlayerResult
 
 
 export const ExtractRaceDataFromImageOutputSchema = z.array(RacePlayerResultSchema);
-export type ExtractRaceDataFromImageOutput = z.infer<typeof ExtractRaceDataFromImageOutputSchema>;
 
 
 // Processed data for client, includes validity check
