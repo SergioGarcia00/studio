@@ -16,11 +16,11 @@ export function exportToCsv(data: CsvData[], filename: string, headers: string[]
   };
 
   const header = headers.join(',') + '\n';
-  const keys = Object.keys(data[0]);
+  const dataKeys = ['rank', 'playerName', 'team', 'score', 'image'];
   
   const rows = data
     .map(row => 
-      keys.map(key => sanitize(row[key])).join(',')
+      dataKeys.map(key => sanitize(row[key])).join(',')
     )
     .join('\n');
     

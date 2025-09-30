@@ -27,8 +27,9 @@ const ExtractTableDataFromImageOutputSchema = z.object({
       team: z.string().describe('The team the player belongs to.'),
       score: z.number().describe('The score of the player.'),
       isValid: z.boolean().describe('Whether or not the record is valid'),
+      rank: z.number().describe('The rank of the player in the race.'),
     })
-  ).describe('The extracted table data containing player names, teams, and scores.'),
+  ).describe('The extracted table data containing player names, teams, scores, and ranks.'),
 });
 export type ExtractTableDataFromImageOutput = z.infer<typeof ExtractTableDataFromImageOutputSchema>;
 
@@ -109,9 +110,9 @@ const extractTableDataFromImageFlow = ai.defineFlow(
       throw new Error(`Failed to extract data after ${maxRetries} attempts.`);
     }
 
-    // Post-process the output to convert scores to numbers and validate entries
-    const processedTableData = await Promise.all(
-      output.output.tableData.map(async (entry) => {
+    // Post-process the output to convert scores to numbers, validate entries, and add ranking
+    const validatedData = await Promise.all(
+        output.output.tableData.map(async (entry) => {
         const isValid = await validatePlayerEntry({
           playerName: entry.playerName,
           team: entry.team,
@@ -125,8 +126,16 @@ const extractTableDataFromImageFlow = ai.defineFlow(
       })
     );
 
+    // Sort by score descending to determine rank
+    const sortedData = validatedData.sort((a, b) => b.score - a.score);
+
+    const rankedData = sortedData.map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+    }));
+
     return {
-      tableData: processedTableData,
+      tableData: rankedData,
     };
   }
 );

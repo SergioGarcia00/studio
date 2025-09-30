@@ -148,6 +148,7 @@ export default function ScoreParser() {
         result.data
             .filter(p => p.isValid)
             .map(p => ({
+                rank: p.rank,
                 playerName: p.playerName,
                 team: p.team,
                 score: p.score,
@@ -164,7 +165,7 @@ export default function ScoreParser() {
       return;
     }
     
-    exportToCsv(allValidData, 'scores.csv', ['Player Name', 'Team', 'Score', 'Image']);
+    exportToCsv(allValidData, 'scores.csv', ['Rank', 'Player Name', 'Team', 'Score', 'Image']);
   };
 
   return (
@@ -274,6 +275,7 @@ export default function ScoreParser() {
                         <Table>
                           <TableHeader className='sticky top-0 bg-card'>
                             <TableRow>
+                              <TableHead className="w-[50px]">Rank</TableHead>
                               <TableHead className="w-[120px]">Status</TableHead>
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
@@ -283,6 +285,7 @@ export default function ScoreParser() {
                           <TableBody>
                             {result.data.length > 0 ? result.data.map((player, pIndex) => (
                               <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
+                                <TableCell className='font-bold'>{player.rank}</TableCell>
                                 <TableCell>
                                   {player.isValid ? (
                                     <span className="flex items-center font-medium text-emerald-600">
@@ -300,7 +303,7 @@ export default function ScoreParser() {
                               </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
                                 </TableRow>
                             )}
                           </TableBody>
