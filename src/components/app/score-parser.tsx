@@ -12,6 +12,7 @@ import {
   ServerCrash,
   TableIcon,
   Trash2,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -26,7 +27,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
-import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult } from '@/ai/types';
+import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -96,6 +97,7 @@ export default function ScoreParser() {
   };
 
   const normalizePlayerName = (name: string): string => {
+    if (!name) return '';
     // Converts to basic latin characters (e.g. ηαγzου -> nayzou)
     const normalized = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     // Removes team prefixes and non-alphanumeric characters, except spaces
@@ -165,7 +167,10 @@ export default function ScoreParser() {
           mergedPlayer.ranks[raceNumber - 1] = racePlayer.rank;
         }
 
-        mergedPlayer.team = racePlayer.team || mergedPlayer.team;
+        // Only update the team if it's currently unassigned.
+        if (!mergedPlayer.team && racePlayer.team) {
+            mergedPlayer.team = racePlayer.team;
+        }
         
         if(racePlayer.shocked) {
             if (!mergedPlayer.shocks.includes(raceNumber)) {
@@ -244,7 +249,7 @@ export default function ScoreParser() {
 
       try {
         const url = await readFileAsDataURL(file);
-        const input: Parameters<typeof extractRaceDataFromImage>[0] = { 
+        const input: ExtractRaceDataFromImageInput = { 
             photoDataUri: url,
             raceNumber: raceForThisImage
         };
@@ -542,7 +547,7 @@ export default function ScoreParser() {
                                 <TableCell>{player.team || 'N/A'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
-                                <TableCell>{player.shocked ? '⚡' : ''}</TableCell>
+                                <TableCell>{player.shocked ? <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" /> : ''}</TableCell>
                               </TableRow>
                             )) : (
                                 <TableRow>
