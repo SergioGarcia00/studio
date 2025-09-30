@@ -44,19 +44,30 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
   };
 
   const hasData = Object.keys(groupedData).length > 0;
+  const numColumns = 12 + 3 + 3; // 12 races + 3 GPs + Player + Rank + Total
 
   return (
     <ScrollArea className="h-[70vh] w-full">
       <Table className='border-collapse border-spacing-0'>
         <TableHeader className='sticky top-0 bg-background z-10'>
           <TableRow>
-            <TableHead className="w-[150px] font-bold text-lg">Player</TableHead>
-            {Array.from({length: 12}).map((_, i) => (
-                <TableHead key={i} className="text-center font-bold text-xs">{`R${i+1}`}</TableHead>
+            <TableHead className="w-[150px] font-bold text-lg sticky left-0 bg-background">Player</TableHead>
+            {/* GP1 */}
+            {Array.from({length: 4}).map((_, i) => (
+                <TableHead key={`r${i+1}`} className="text-center font-bold text-xs">{`R${i+1}`}</TableHead>
             ))}
-            <TableHead className="text-center font-bold">GP1</TableHead>
-            <TableHead className="text-center font-bold">GP2</TableHead>
-            <TableHead className="text-center font-bold">GP3</TableHead>
+            <TableHead className="text-center font-bold bg-muted/50">GP1</TableHead>
+            {/* GP2 */}
+            {Array.from({length: 4}).map((_, i) => (
+                <TableHead key={`r${i+5}`} className="text-center font-bold text-xs">{`R${i+5}`}</TableHead>
+            ))}
+            <TableHead className="text-center font-bold bg-muted/50">GP2</TableHead>
+            {/* GP3 */}
+            {Array.from({length: 4}).map((_, i) => (
+                <TableHead key={`r${i+9}`} className="text-center font-bold text-xs">{`R${i+9}`}</TableHead>
+            ))}
+            <TableHead className="text-center font-bold bg-muted/50">GP3</TableHead>
+
             <TableHead className="text-center font-bold">Rank</TableHead>
             <TableHead className="text-center font-bold">Total</TableHead>
           </TableRow>
@@ -66,12 +77,15 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
             Object.entries(groupedData).map(([team, players]) => (
               <React.Fragment key={team}>
                 <TableRow className={cn('font-bold text-lg', teamColors[team] || 'bg-muted/50')}>
-                  <TableCell colSpan={18}>{team}</TableCell>
+                  <TableCell colSpan={numColumns} className="sticky left-0">
+                    {team}
+                  </TableCell>
                 </TableRow>
                 {players.map((player, pIndex) => (
                   <TableRow key={pIndex}>
-                    <TableCell className="font-medium">{player.playerName}</TableCell>
-                    {player.scores.map((score, sIndex) => (
+                    <TableCell className="font-medium sticky left-0 bg-background/95">{player.playerName}</TableCell>
+                    {/* GP1 Scores */}
+                    {player.scores.slice(0,4).map((score, sIndex) => (
                         <TableCell key={sIndex} className="text-center font-mono">
                           <div className='flex items-center justify-center gap-1'>
                             {score ?? '-'}
@@ -81,9 +95,34 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                           </div>
                         </TableCell>
                     ))}
-                    <TableCell className="text-center font-mono font-bold">{player.gp1 ?? '-'}</TableCell>
-                    <TableCell className="text-center font-mono font-bold">{player.gp2 ?? '-'}</TableCell>
-                    <TableCell className="text-center font-mono font-bold">{player.gp3 ?? '-'}</TableCell>
+                    <TableCell className="text-center font-mono font-bold bg-muted/50">{player.gp1 ?? '-'}</TableCell>
+                    
+                    {/* GP2 Scores */}
+                    {player.scores.slice(4,8).map((score, sIndex) => (
+                        <TableCell key={sIndex+4} className="text-center font-mono">
+                          <div className='flex items-center justify-center gap-1'>
+                            {score ?? '-'}
+                            {player.shocks.includes(sIndex + 5) && (
+                              <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                            )}
+                          </div>
+                        </TableCell>
+                    ))}
+                    <TableCell className="text-center font-mono font-bold bg-muted/50">{player.gp2 ?? '-'}</TableCell>
+
+                    {/* GP3 Scores */}
+                     {player.scores.slice(8,12).map((score, sIndex) => (
+                        <TableCell key={sIndex+8} className="text-center font-mono">
+                          <div className='flex items-center justify-center gap-1'>
+                            {score ?? '-'}
+                            {player.shocks.includes(sIndex + 9) && (
+                              <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />
+                            )}
+                          </div>
+                        </TableCell>
+                    ))}
+                    <TableCell className="text-center font-mono font-bold bg-muted/50">{player.gp3 ?? '-'}</TableCell>
+
                     <TableCell className="text-center font-mono font-bold">{player.rank ?? '-'}</TableCell>
                     <TableCell className="text-center font-mono font-bold">{player.total ?? '-'}</TableCell>
                   </TableRow>
@@ -92,7 +131,7 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={18} className="text-center text-muted-foreground h-24">
+              <TableCell colSpan={numColumns} className="text-center text-muted-foreground h-24">
                 No valid data to display.
               </TableCell>
             </TableRow>
