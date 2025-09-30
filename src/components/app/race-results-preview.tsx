@@ -21,8 +21,9 @@ interface RaceResultsPreviewProps {
 
 export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
   const groupedData = useMemo(() => {
+    const validPlayers = data.filter(player => player.isValid);
     const groups: { [key: string]: Player[] } = {};
-    data.forEach(player => {
+    validPlayers.forEach(player => {
       const team = player.team || 'Unassigned';
       if (!groups[team]) {
         groups[team] = [];
@@ -42,6 +43,8 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
     'DS (RED)': 'bg-red-900/50',
   };
 
+  const hasData = Object.keys(groupedData).length > 0;
+
   return (
     <ScrollArea className="h-[70vh] w-full">
       <Table className='border-collapse border-spacing-0'>
@@ -59,29 +62,30 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {Object.entries(groupedData).map(([team, players]) => (
-            <>
-              <TableRow key={team} className={cn('font-bold text-lg', teamColors[team] || 'bg-muted/50')}>
-                <TableCell colSpan={18}>{team}</TableCell>
-              </TableRow>
-              {players.map((player, pIndex) => (
-                <TableRow key={pIndex}>
-                  <TableCell className="font-medium">{player.playerName}</TableCell>
-                  {player.scores.map((score, sIndex) => (
-                    <TableCell key={sIndex} className="text-center font-mono">
-                      {score ?? '-'}
-                    </TableCell>
-                  ))}
-                  <TableCell className="text-center font-mono font-bold">{player.gp1}</TableCell>
-                  <TableCell className="text-center font-mono font-bold">{player.gp2}</TableCell>
-                  <TableCell className="text-center font-mono font-bold">{player.gp3}</TableCell>
-                  <TableCell className="text-center font-mono font-bold">{player.rank}</TableCell>
-                  <TableCell className="text-center font-mono font-bold">{player.total}</TableCell>
+          {hasData ? (
+            Object.entries(groupedData).map(([team, players]) => (
+              <>
+                <TableRow key={team} className={cn('font-bold text-lg', teamColors[team] || 'bg-muted/50')}>
+                  <TableCell colSpan={18}>{team}</TableCell>
                 </TableRow>
-              ))}
-            </>
-          ))}
-          {data.length === 0 && (
+                {players.map((player, pIndex) => (
+                  <TableRow key={pIndex}>
+                    <TableCell className="font-medium">{player.playerName}</TableCell>
+                    {player.scores.map((score, sIndex) => (
+                      <TableCell key={sIndex} className="text-center font-mono">
+                        {score ?? '-'}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-mono font-bold">{player.gp1}</TableCell>
+                    <TableCell className="text-center font-mono font-bold">{player.gp2}</TableCell>
+                    <TableCell className="text-center font-mono font-bold">{player.gp3}</TableCell>
+                    <TableCell className="text-center font-mono font-bold">{player.rank}</TableCell>
+                    <TableCell className="text-center font-mono font-bold">{player.total}</TableCell>
+                  </TableRow>
+                ))}
+              </>
+            ))
+          ) : (
             <TableRow>
               <TableCell colSpan={18} className="text-center text-muted-foreground h-24">
                 No valid data to display.
