@@ -94,9 +94,6 @@ const extractTableDataFromImageFlow = ai.defineFlow(
           if (attempt < maxRetries) {
             const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
             await new Promise(resolve => setTimeout(resolve, delay));
-          } else {
-            // All retries failed
-            throw new Error(`The model is overloaded and retries failed. Last error: ${lastError?.message}`);
           }
         } else {
           // Not a retryable error
@@ -106,7 +103,10 @@ const extractTableDataFromImageFlow = ai.defineFlow(
     }
     
     if (!output?.output) {
-      throw new Error(`Failed to extract data after ${maxRetries} attempts. Last error: ${lastError?.message}`);
+      if (lastError) {
+        throw new Error(`The model is overloaded and retries failed. Last error: ${lastError.message}`);
+      }
+      throw new Error(`Failed to extract data after ${maxRetries} attempts.`);
     }
 
     // Post-process the output to convert scores to numbers and validate entries
