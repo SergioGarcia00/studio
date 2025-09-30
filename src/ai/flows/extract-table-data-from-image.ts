@@ -8,6 +8,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {GenerateResponse} from 'genkit';
 import {z} from 'genkit';
 
 const ExtractTableDataFromImageInputSchema = z.object({
@@ -76,11 +77,41 @@ const extractTableDataFromImageFlow = ai.defineFlow(
     outputSchema: ExtractTableDataFromImageOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    const maxRetries = 3;
+    let attempt = 0;
+    let output: GenerateResponse<z.infer<typeof ExtractTableDataFromImageOutputSchema>> | null = null;
+    let lastError: Error | null = null;
+
+    while (attempt < maxRetries) {
+      try {
+        const result = await prompt(input);
+        output = result;
+        break; // Success, exit loop
+      } catch (e: any) {
+        lastError = e;
+        if (e.message && (e.message.includes('503') || e.message.toLowerCase().includes('overloaded'))) {
+          attempt++;
+          if (attempt < maxRetries) {
+            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            // All retries failed
+            throw new Error(`The model is overloaded and retries failed. Last error: ${lastError?.message}`);
+          }
+        } else {
+          // Not a retryable error
+          throw e;
+        }
+      }
+    }
+    
+    if (!output?.output) {
+      throw new Error(`Failed to extract data after ${maxRetries} attempts. Last error: ${lastError?.message}`);
+    }
 
     // Post-process the output to convert scores to numbers and validate entries
     const processedTableData = await Promise.all(
-      output!.tableData.map(async (entry) => {
+      output.output.tableData.map(async (entry) => {
         const isValid = await validatePlayerEntry({
           playerName: entry.playerName,
           team: entry.team,
