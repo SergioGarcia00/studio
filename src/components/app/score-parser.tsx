@@ -227,42 +227,54 @@ export default function ScoreParser() {
   }, []);
 
   const handleToggleShock = (raceNumber: number, playerIndex: number) => {
-    const updatedExtractedData = [...extractedData];
-    const targetRace = updatedExtractedData.find(r => r.raceNumber === raceNumber);
-    
-    if(!targetRace) return;
-
-    const targetPlayerResult = targetRace.data[playerIndex];
-
-    if (targetPlayerResult) {
-      targetPlayerResult.shocked = !targetPlayerResult.shocked;
-      setExtractedData(updatedExtractedData);
-
-      setMergedData(prevData => {
-        const masterPlayerName = getMasterPlayerName(targetPlayerResult.playerName, Object.keys(prevData));
-        if (!masterPlayerName) return prevData;
-        
-        const playerToUpdate = prevData[masterPlayerName];
-
-        if (playerToUpdate) {
-            const shockRaceNumber = targetRace.raceNumber;
-            const shockIndex = playerToUpdate.shocks.indexOf(shockRaceNumber);
-
-            if (targetPlayerResult.shocked) {
-                if (shockIndex === -1) {
-                    playerToUpdate.shocks.push(shockRaceNumber);
-                }
-            } else {
-                if (shockIndex > -1) {
-                    playerToUpdate.shocks.splice(shockIndex, 1);
-                }
-            }
-             const finalData = recalculateAllTotals(prevData);
-             return finalData;
-        }
-        return prevData;
+    setExtractedData(currentExtractedData => {
+      const updatedExtractedData = [...currentExtractedData];
+      const targetRace = updatedExtractedData.find(r => r.raceNumber === raceNumber);
+      if (!targetRace) return currentExtractedData;
+  
+      const targetPlayerResult = targetRace.data[playerIndex];
+      if (!targetPlayerResult) return currentExtractedData;
+  
+      const isCurrentlyShocked = targetPlayerResult.shocked;
+  
+      // Clear all shocks for this race
+      targetRace.data.forEach(player => {
+        player.shocked = false;
       });
-    }
+  
+      // If the player was not shocked before, set them as shocked
+      if (!isCurrentlyShocked) {
+        targetPlayerResult.shocked = true;
+      }
+      // If they were already shocked, they are now un-shocked from the previous step.
+  
+      // Now, sync the changes with the mergedData state
+      setMergedData(prevMergedData => {
+        let updatedMergedData = JSON.parse(JSON.stringify(prevMergedData)) as MergedRaceData;
+  
+        // Remove this race from any player's shock list
+        Object.values(updatedMergedData).forEach(player => {
+          const shockIndex = player.shocks.indexOf(raceNumber);
+          if (shockIndex > -1) {
+            player.shocks.splice(shockIndex, 1);
+          }
+        });
+  
+        // If a player is now shocked, add it to their list in mergedData
+        if (!isCurrentlyShocked) {
+          const masterPlayerName = getMasterPlayerName(targetPlayerResult.playerName, Object.keys(updatedMergedData));
+          if (masterPlayerName && updatedMergedData[masterPlayerName]) {
+            updatedMergedData[masterPlayerName].shocks.push(raceNumber);
+          }
+        }
+        
+        // Recalculate everything just in case, although shock doesn't affect totals
+        const finalData = recalculateAllTotals(updatedMergedData);
+        return finalData;
+      });
+  
+      return updatedExtractedData;
+    });
   };
 
   const handleGenerateDemoData = () => {
