@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import React from 'react';
 
 type Player = ExtractTableDataFromImageOutput['tableData'][0];
 
@@ -64,8 +65,8 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
         <TableBody>
           {hasData ? (
             Object.entries(groupedData).map(([team, players]) => (
-              <>
-                <TableRow key={team} className={cn('font-bold text-lg', teamColors[team] || 'bg-muted/50')}>
+              <React.Fragment key={team}>
+                <TableRow className={cn('font-bold text-lg', teamColors[team] || 'bg-muted/50')}>
                   <TableCell colSpan={18}>{team}</TableCell>
                 </TableRow>
                 {players.map((player, pIndex) => (
@@ -83,7 +84,7 @@ export function RaceResultsPreview({ data }: RaceResultsPreviewProps) {
                     <TableCell className="text-center font-mono font-bold">{player.total}</TableCell>
                   </TableRow>
                 ))}
-              </>
+              </React.Fragment>
             ))
           ) : (
             <TableRow>
