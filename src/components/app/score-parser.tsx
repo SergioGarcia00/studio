@@ -40,6 +40,12 @@ export type ExtractedData = {
   data: Player[];
 };
 
+type ImageQueueItem = {
+  file: File;
+  retries: number;
+};
+
+
 export default function ScoreParser() {
   const [images, setImages] = useState<File[]>([]);
   const [extractedData, setExtractedData] = useState<ExtractedData[] | null>(null);
@@ -80,6 +86,9 @@ export default function ScoreParser() {
     setProgress(0);
     
     const allData: ExtractedData[] = [];
+    const maxRetriesPerImage = 2;
+    const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
+    let processedCount = 0;
     
     const readFileAsDataURL = (file: File): Promise<string> => {
       return new Promise((resolve, reject) => {
@@ -91,8 +100,12 @@ export default function ScoreParser() {
     };
 
     try {
-      for (let i = 0; i < images.length; i++) {
-        const file = images[i];
+      while (imageQueue.length > 0) {
+        const item = imageQueue.shift();
+        if (!item) continue;
+
+        const { file, retries } = item;
+
         try {
           const url = await readFileAsDataURL(file);
           const result = await extractTableDataFromImage({ photoDataUri: url });
@@ -101,17 +114,39 @@ export default function ScoreParser() {
             filename: file.name,
             data: result.tableData,
           });
-        } catch (e) {
+          processedCount++;
+        } catch (e: any) {
             console.error(`Failed to process image ${file.name}:`, e);
+            if (e.message && e.message.includes('overloaded') && retries < maxRetriesPerImage) {
+                // Re-queue the image if it was an overload error and we haven't maxed out retries
+                imageQueue.push({ file, retries: retries + 1 });
+                toast({
+                    title: 'Service Busy',
+                    description: `Retrying '${file.name}'...`,
+                });
+            } else {
+                 // For non-retryable errors or maxed out retries, treat as failed but don't stop the whole batch
+                allData.push({
+                    imageUrl: URL.createObjectURL(file), // create a temp URL for preview
+                    filename: file.name,
+                    data: [], // Mark as no data extracted
+                });
+                processedCount++;
+                toast({
+                    title: `Failed to process '${file.name}'`,
+                    description: e.message || 'An unknown error occurred.',
+                    variant: 'destructive',
+                });
+            }
         }
-        setProgress(((i + 1) / images.length) * 100);
+        setProgress((processedCount / images.length) * 100);
       }
 
-      if (allData.length > 0 && allData.some(d => d.data.length > 0)) {
-        setExtractedData(allData);
+      if (allData.some(d => d.data.length > 0)) {
+        setExtractedData(allData.sort((a,b) => images.findIndex(f => f.name === a.filename) - images.findIndex(f => f.name === b.filename)));
         toast({
-          title: 'Extraction Successful',
-          description: `Player data has been extracted from ${images.length} image(s).`,
+          title: 'Extraction Complete',
+          description: `Data processing finished for ${images.length} image(s).`,
           className: 'bg-accent text-accent-foreground'
         });
       } else {
@@ -124,13 +159,9 @@ export default function ScoreParser() {
       }
     } catch (e) {
       console.error(e);
-      let errorMessage = 'An unknown error occurred.';
+      let errorMessage = 'An unexpected error occurred during the batch processing.';
       if (e instanceof Error) {
-        if (e.message.includes('overloaded')) {
-            errorMessage = 'The AI model is currently overloaded. Please try again in a moment.';
-        } else {
-            errorMessage = e.message;
-        }
+        errorMessage = e.message;
       }
       setError(errorMessage);
       toast({
