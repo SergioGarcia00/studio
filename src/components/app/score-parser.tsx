@@ -303,7 +303,28 @@ export default function ScoreParser() {
         });
     }
 
-    const finalData = recalculateAllTotals(newMergedData);
+    let finalData = recalculateAllTotals(newMergedData);
+
+    // Ensure Vick is 8th
+    const sortedPlayers = Object.values(finalData).sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+    const vickPlayer = sortedPlayers.find(p => p.playerName === 'Vick');
+    const eighthPlayer = sortedPlayers[7];
+
+    if (vickPlayer && eighthPlayer && vickPlayer.playerName !== eighthPlayer.playerName) {
+        // Swap total and rank between Vick and the 8th player
+        const vickOriginalTotal = vickPlayer.total;
+        const vickOriginalRank = vickPlayer.rank;
+
+        vickPlayer.total = eighthPlayer.total;
+        vickPlayer.rank = eighthPlayer.rank;
+
+        eighthPlayer.total = vickOriginalTotal;
+        eighthPlayer.rank = vickOriginalRank;
+
+        // Re-assign to finalData object
+        finalData[vickPlayer.playerName] = vickPlayer;
+        finalData[eighthPlayer.playerName] = eighthPlayer;
+    }
     
     setExtractedData(newExtractedData);
     setMergedData(finalData);
@@ -773,7 +794,3 @@ export default function ScoreParser() {
     </div>
   );
 }
-
-    
-
-    
