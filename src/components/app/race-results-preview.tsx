@@ -131,22 +131,33 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     downloadAsPng: async () => {
       const element = printRef.current;
       if (!element) return;
+  
+      // The element to capture is the direct child of the scroll area's viewport
+      const captureTarget = element.querySelector<HTMLElement>(':scope > div > table');
+      if (!captureTarget) return;
 
-      const clonedElement = element.cloneNode(true) as HTMLElement;
+      const clonedElement = captureTarget.cloneNode(true) as HTMLElement;
       
+      // Prepare the clone for off-screen rendering to get the full size
       clonedElement.style.position = 'absolute';
       clonedElement.style.left = '-9999px';
       clonedElement.style.top = '0px';
-      clonedElement.style.width = `${element.scrollWidth}px`;
+      clonedElement.style.width = `${captureTarget.scrollWidth}px`;
+      clonedElement.style.height = 'auto'; // Let it expand to full height
       
       document.body.appendChild(clonedElement);
-
+      
       const backgroundColorHsl = getComputedStyle(document.documentElement).getPropertyValue('--card').trim();
+      
       const canvas = await html2canvas(clonedElement, {
           scale: 2,
           backgroundColor: `hsl(${backgroundColorHsl})`,
           useCORS: true,
           allowTaint: true,
+          scrollX: 0,
+          scrollY: -window.scrollY,
+          windowWidth: clonedElement.scrollWidth,
+          windowHeight: clonedElement.scrollHeight,
       });
 
       document.body.removeChild(clonedElement);
@@ -181,10 +192,9 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                 });
             });
 
-             // Add team stats in the middle
             if (teamIndex === 0 && teamEntries.length > 1) {
-                const { blue, red, diff } = teamStats;
                 csvData.push({Player: ''}); // Spacer
+                const { blue, red, diff } = teamStats;
                 csvData.push({
                     Player: 'Puntos Equipo Azul',
                     R1: blue.raceScores[0], R2: blue.raceScores[1], R3: blue.raceScores[2], R4: blue.raceScores[3], GP1: blue.gp1,
@@ -256,7 +266,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                       const isGpColumn = i === 4 || i === 9 || i === 14;
                       return (
                         <TableCell key={i} className={cn( isGpColumn ? 'bg-muted/50' : '' )}>
-                          {shockLog[i + 1] === team && !isGpColumn && (
+                          {!isGpColumn && shockLog[i + 1] === team && (
                             <div className='flex items-center justify-center'>
                               <ShockIcon className='h-4 w-4' />
                             </div>
