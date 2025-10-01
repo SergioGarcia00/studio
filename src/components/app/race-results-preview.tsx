@@ -51,9 +51,10 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     downloadAsPng: async () => {
       const element = printRef.current;
       if (element) {
+        const backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--card').trim();
         const canvas = await html2canvas(element, {
             scale: 2,
-            backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card'),
+            backgroundColor: `hsl(${backgroundColor})`,
         });
         const data = canvas.toDataURL('image/png');
         const link = document.createElement('a');
