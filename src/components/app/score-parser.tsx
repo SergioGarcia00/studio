@@ -292,19 +292,24 @@ export default function ScoreParser() {
     
     // Set dummy extracted data for previewing shocks and individual race data
     const newExtractedData: ExtractedData[] = [];
-    for (let i=0; i<12; i++) {
+    for (let i = 0; i < 12; i++) {
         newExtractedData.push({
             imageUrl: '',
             filename: `Demo Race ${i + 1}`,
             raceNumber: i + 1,
-            data: demoPlayers.map(p => ({
-                playerName: p,
-                team: newMergedData[p].team,
-                score: rankToScore(newMergedData[p].ranks[i]),
-                rank: newMergedData[p].ranks[i]!,
-                isValid: true,
-                raceScore: rankToScore(newMergedData[p].ranks[i]),
-            }))
+            data: demoPlayers.map(p => {
+                const raceScore = rankToScore(newMergedData[p].ranks[i]);
+                const totalScore = newMergedData[p].ranks.slice(0, i + 1).reduce((acc, rank) => acc + rankToScore(rank), 0);
+
+                return {
+                    playerName: p,
+                    team: newMergedData[p].team,
+                    score: totalScore,
+                    rank: newMergedData[p].ranks[i]!,
+                    isValid: true,
+                    raceScore: raceScore,
+                }
+            })
         });
     }
 
@@ -375,7 +380,7 @@ export default function ScoreParser() {
     };
     
     let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(mergedData);
-    let tempMergedData = { ...mergedData };
+    let tempMergedDataForCalculation = { ...mergedData };
 
 
     while (imageQueue.length > 0) {
@@ -406,7 +411,8 @@ export default function ScoreParser() {
             }
 
             const masterName = getMasterPlayerName(player.playerName, masterPlayerList);
-            const prevTotal = raceForThisImage > 1 ? (tempMergedData[masterName]?.total ?? 0) : 0;
+            // Get the sum of scores of previous races
+            const prevTotal = raceForThisImage > 1 ? (tempMergedDataForCalculation[masterName]?.total ?? 0) : 0;
             const currentTotal = player.score;
             const raceScore = currentTotal - prevTotal;
             const rank = SCORE_TO_RANK[raceScore] || '?th';
@@ -431,24 +437,33 @@ export default function ScoreParser() {
         }
 
         if(finalRaceData.some(d => d.isValid)) {
+          // This call updates the main state used by previews
           updateMergedDataWithRace(finalRaceData, raceForThisImage, masterPlayerList);
-          // Manually update a temporary state for the next iteration's calculation
+
+          // Manually update a temporary state for the *next* iteration's calculation
           finalRaceData.forEach(p => {
               if (p.isValid && p.playerName) {
                   const masterName = getMasterPlayerName(p.playerName, masterPlayerList);
-                  if (!tempMergedData[masterName]) {
-                      tempMergedData[masterName] = { playerName: masterName, team: 'Unassigned', ranks: Array(12).fill(null), gp1: null, gp2: null, gp3: null, total: 0, rank: null, isValid: true };
+                  if (!masterName) return;
+
+                  if (!tempMergedDataForCalculation[masterName]) {
+                      tempMergedDataForCalculation[masterName] = { 
+                        playerName: masterName, 
+                        team: 'Unassigned', 
+                        ranks: Array(12).fill(null), 
+                        gp1: null, gp2: null, gp3: null, 
+                        total: 0, 
+                        rank: null, 
+                        isValid: true 
+                      };
                   }
                   // Store the *cumulative* score in the temp object for the next race calculation
-                  tempMergedData[masterName].total = p.score;
-                  // We also update ranks here for the main mergedData state
-                  tempMergedData[masterName].ranks[raceForThisImage - 1] = p.rank;
+                  tempMergedDataForCalculation[masterName].total = p.score;
               }
           });
         }
         processedCount++;
         currentRaceNumber++;
-
 
       } catch (e: any) {
           console.error(`Failed to process image ${file.name}:`, e);
@@ -743,7 +758,7 @@ export default function ScoreParser() {
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
                               <TableHead className="text-right">Total Score</TableHead>
-                              <TableHead>Race Score</TableHead>
+                              <TableHead className='text-right'>Race Score</TableHead>
                               <TableHead>Rank</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -825,3 +840,5 @@ export default function ScoreParser() {
     </div>
   );
 }
+
+    
