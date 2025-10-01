@@ -129,46 +129,51 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
 
   useImperativeHandle(ref, () => ({
     downloadAsPng: async () => {
-      const element = printRef.current;
-      if (!element) return;
-  
-      // The element to capture is the direct child of the scroll area's viewport
-      const captureTarget = element.querySelector<HTMLElement>(':scope > div > table');
-      if (!captureTarget) return;
+      const elementToCapture = printRef.current?.querySelector<HTMLDivElement>(':scope > div');
 
-      const clonedElement = captureTarget.cloneNode(true) as HTMLElement;
+      if (!elementToCapture) {
+        console.error("Could not find the element to capture for PNG export.");
+        return;
+      }
+      
+      const clonedElement = elementToCapture.cloneNode(true) as HTMLElement;
       
       // Prepare the clone for off-screen rendering to get the full size
       clonedElement.style.position = 'absolute';
       clonedElement.style.left = '-9999px';
-      clonedElement.style.top = '0px';
-      clonedElement.style.width = `${captureTarget.scrollWidth}px`;
+      clonedElement.style.top = '0';
       clonedElement.style.height = 'auto'; // Let it expand to full height
+      clonedElement.style.width = `${elementToCapture.scrollWidth}px`; // Use scrollWidth
       
       document.body.appendChild(clonedElement);
       
       const backgroundColorHsl = getComputedStyle(document.documentElement).getPropertyValue('--card').trim();
       
-      const canvas = await html2canvas(clonedElement, {
-          scale: 2,
-          backgroundColor: `hsl(${backgroundColorHsl})`,
-          useCORS: true,
-          allowTaint: true,
-          scrollX: 0,
-          scrollY: -window.scrollY,
-          windowWidth: clonedElement.scrollWidth,
-          windowHeight: clonedElement.scrollHeight,
-      });
+      try {
+        const canvas = await html2canvas(clonedElement, {
+            scale: 2,
+            backgroundColor: `hsl(${backgroundColorHsl})`,
+            useCORS: true,
+            allowTaint: true,
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: clonedElement.scrollWidth,
+            windowHeight: clonedElement.scrollHeight,
+        });
+        
+        const data = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = data;
+        link.download = 'race-results.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
 
-      document.body.removeChild(clonedElement);
-      
-      const data = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.href = data;
-      link.download = 'race-results.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      } catch (error) {
+        console.error("Error generating PNG:", error);
+      } finally {
+        document.body.removeChild(clonedElement);
+      }
     },
     downloadAsCsv: () => {
         const csvData: any[] = [];
@@ -264,9 +269,10 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     </TableCell>
                     {Array.from({ length: 17 }).map((_, i) => {
                       const isGpColumn = i === 4 || i === 9 || i === 14;
+                      const raceNumber = [1, 2, 3, 4, 0, 5, 6, 7, 8, 0, 9, 10, 11, 12, 0, 0, 0][i];
                       return (
                         <TableCell key={i} className={cn( isGpColumn ? 'bg-muted/50' : '' )}>
-                          {!isGpColumn && shockLog[i + 1] === team && (
+                          {!isGpColumn && shockLog[raceNumber] === team && (
                             <div className='flex items-center justify-center'>
                               <ShockIcon className='h-4 w-4' />
                             </div>
