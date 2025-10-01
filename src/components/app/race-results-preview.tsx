@@ -47,18 +47,9 @@ const getRankClass = (rank: string | null) => {
 };
 
 const ShockIcon = ({ className }: { className?: string }) => (
-  <svg
-    preserveAspectRatio="xMidYMid meet"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+  <Zap
     className={cn("h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto", className)}
-  >
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-  </svg>
+  />
 );
 
 
@@ -261,17 +252,18 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     <TableCell className="sticky left-0">
                         {team}
                     </TableCell>
-                    {Array.from({ length: 12 + 5 }).map((_, i) => (
-                      <TableCell key={i} className={cn(
-                        i === 4 || i === 9 || i === 14 ? 'bg-muted/50' : '',
-                      )}>
-                        {shockLog[i + 1] === team && (
-                          <div className='flex items-center justify-center'>
-                            <ShockIcon className='h-4 w-4' />
-                          </div>
-                        )}
-                      </TableCell>
-                    ))}
+                    {Array.from({ length: 17 }).map((_, i) => {
+                      const isGpColumn = i === 4 || i === 9 || i === 14;
+                      return (
+                        <TableCell key={i} className={cn( isGpColumn ? 'bg-muted/50' : '' )}>
+                          {shockLog[i + 1] === team && !isGpColumn && (
+                            <div className='flex items-center justify-center'>
+                              <ShockIcon className='h-4 w-4' />
+                            </div>
+                          )}
+                        </TableCell>
+                      );
+                    })}
                 </TableRow>
                 {players.map((player, pIndex) => (
                   <TableRow key={pIndex}>
@@ -302,7 +294,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                 
                 {tIndex === 0 && Object.keys(groupedData).length > 1 && (
                 <React.Fragment>
-                    <TableRow className="h-2 bg-muted/20 hover:bg-muted/20">
+                    <TableRow className="h-2 bg-muted/50 hover:bg-muted/50">
                       <TableCell colSpan={numColumns}></TableCell>
                     </TableRow>
                     <TableRow className='font-bold border-y'>
@@ -340,7 +332,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                         <TableCell className="text-center font-mono">{teamStats.red.total}</TableCell>
                     </TableRow>
                     )}
-                     <TableRow className="h-2 bg-muted/20 hover:bg-muted/20">
+                    <TableRow className="h-2 bg-muted/50 hover:bg-muted/50">
                       <TableCell colSpan={numColumns}></TableCell>
                     </TableRow>
                 </React.Fragment>
