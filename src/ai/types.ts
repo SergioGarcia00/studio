@@ -63,8 +63,8 @@ export type ExtractRaceDataFromImageInput = z.infer<typeof ExtractRaceDataFromIm
 export const RacePlayerResultSchema = z.object({
   playerName: z.string().describe('The name of the player.'),
   team: z.string().describe('The team the player belongs to.'),
-  score: z.number().describe('The score for this specific race.'),
-  rank: z.string().describe('The rank in this specific race (e.g., "1st").'),
+  score: z.number().describe('The total score up to this specific race.'),
+  rank: z.string().describe('The rank in this specific race (e.g., "1st"). This can be unreliable.'),
 });
 export type RacePlayerResult = z.infer<typeof RacePlayerResultSchema>;
 
@@ -117,3 +117,5 @@ export type MergedRaceData = {
 export type ShockLog = {
   [raceNumber: number]: string; // team name
 }
+
+    

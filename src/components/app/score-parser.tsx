@@ -49,6 +49,10 @@ const RANK_TO_SCORE: { [key: string]: number } = {
   '7th': 6, '8th': 5, '9th': 4, '10th': 3, '11th': 2, '12th': 1,
 };
 
+const SCORE_TO_RANK: { [key: number]: string } = Object.fromEntries(
+    Object.entries(RANK_TO_SCORE).map(([rank, score]) => [score, rank])
+);
+
 const rankToScore = (rank: string | null): number => {
     if (!rank) return 0;
     return RANK_TO_SCORE[rank] || 0;
@@ -162,7 +166,7 @@ export default function ScoreParser() {
     return '';
   };
 
-  const updateMergedDataWithRace = useCallback((raceResults: (RacePlayerResult & {isValid: boolean})[], raceNumber: number, masterPlayerList: string[]) => {
+  const updateMergedDataWithRace = useCallback((raceResults: (ValidatedRacePlayerResult)[], raceNumber: number, masterPlayerList: string[]) => {
       setMergedData(prevData => {
         let updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
     
@@ -299,6 +303,7 @@ export default function ScoreParser() {
                 score: rankToScore(newMergedData[p].ranks[i]),
                 rank: newMergedData[p].ranks[i]!,
                 isValid: true,
+                raceScore: rankToScore(newMergedData[p].ranks[i]),
             }))
         });
     }
@@ -370,6 +375,7 @@ export default function ScoreParser() {
     };
     
     let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(mergedData);
+    let tempMergedData = { ...mergedData };
 
 
     while (imageQueue.length > 0) {
@@ -393,12 +399,25 @@ export default function ScoreParser() {
 
         const aiResult = await extractRaceDataFromImage(input);
         
-        // The AI now returns the rank directly. No need to recalculate it from score.
-        const finalRaceData = aiResult.map(player => ({
-            ...player,
-            // The rank is directly from the AI, ensure it's not null.
-            rank: player.rank || '?th', 
-        }));
+        // Calculate race score and rank from total score
+        const finalRaceData = aiResult.map(player => {
+            if (!player.isValid || !player.playerName) {
+              return { ...player, rank: '?th', raceScore: 0, score: player.score ?? 0 };
+            }
+
+            const masterName = getMasterPlayerName(player.playerName, masterPlayerList);
+            const prevTotal = raceForThisImage > 1 ? (tempMergedData[masterName]?.total ?? 0) : 0;
+            const currentTotal = player.score;
+            const raceScore = currentTotal - prevTotal;
+            const rank = SCORE_TO_RANK[raceScore] || '?th';
+            
+            return {
+              ...player,
+              score: currentTotal,
+              raceScore: raceScore,
+              rank: rank, 
+            };
+        });
 
         newExtractedResult = {
           imageUrl: url,
@@ -413,6 +432,19 @@ export default function ScoreParser() {
 
         if(finalRaceData.some(d => d.isValid)) {
           updateMergedDataWithRace(finalRaceData, raceForThisImage, masterPlayerList);
+          // Manually update a temporary state for the next iteration's calculation
+          finalRaceData.forEach(p => {
+              if (p.isValid && p.playerName) {
+                  const masterName = getMasterPlayerName(p.playerName, masterPlayerList);
+                  if (!tempMergedData[masterName]) {
+                      tempMergedData[masterName] = { playerName: masterName, team: 'Unassigned', ranks: Array(12).fill(null), gp1: null, gp2: null, gp3: null, total: 0, rank: null, isValid: true };
+                  }
+                  // Store the *cumulative* score in the temp object for the next race calculation
+                  tempMergedData[masterName].total = p.score;
+                  // We also update ranks here for the main mergedData state
+                  tempMergedData[masterName].ranks[raceForThisImage - 1] = p.rank;
+              }
+          });
         }
         processedCount++;
         currentRaceNumber++;
@@ -711,6 +743,7 @@ export default function ScoreParser() {
                               <TableHead>Player Name</TableHead>
                               <TableHead>Team</TableHead>
                               <TableHead className="text-right">Total Score</TableHead>
+                              <TableHead>Race Score</TableHead>
                               <TableHead>Rank</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -720,11 +753,12 @@ export default function ScoreParser() {
                                 <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
                                 <TableCell>{player.team || 'N/A'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
+                                <TableCell className="text-right font-mono">{player.raceScore ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
                               </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
                                 </TableRow>
                             )}
                           </TableBody>

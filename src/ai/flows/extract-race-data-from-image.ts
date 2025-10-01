@@ -49,7 +49,7 @@ const prompt = ai.definePrompt({
   Use the following image to extract the data:
   {{media url=photoDataUri}}
 
-  Return the data in the specified JSON format. The output should be an array of player objects.`,
+  Return the data in the specified JSON format. The output should be an array of player objects. I need the total score, not the race score.`,
 });
 
 const extractRaceDataFromImageFlow = ai.defineFlow(
@@ -100,3 +100,5 @@ const extractRaceDataFromImageFlow = ai.defineFlow(
     return validatedData;
   }
 );
+
+    
