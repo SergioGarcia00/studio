@@ -13,7 +13,6 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import React from 'react';
-import { Zap } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 interface RaceResultsPreviewProps {
@@ -43,6 +42,23 @@ const getRankClass = (rank: string | null) => {
     return '';
 };
 
+const ShockIcon = ({ className }: { className?: string }) => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+);
+
 
 export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsPreviewProps>(({ data, shockLog }, ref) => {
   const printRef = useRef<HTMLTableElement>(null);
@@ -51,10 +67,10 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     downloadAsPng: async () => {
       const element = printRef.current;
       if (element) {
-        const backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--card').trim();
+        const backgroundColorHsl = getComputedStyle(document.documentElement).getPropertyValue('--card').trim();
         const canvas = await html2canvas(element, {
             scale: 2,
-            backgroundColor: `hsl(${backgroundColor})`,
+            backgroundColor: `hsl(${backgroundColorHsl})`,
         });
         const data = canvas.toDataURL('image/png');
         const link = document.createElement('a');
@@ -179,19 +195,19 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     </TableCell>
                     {Array.from({length: 4}).map((_, i) => (
                         <TableCell key={`shock-r${i+1}`} className="text-center">
-                            {shockLog[i+1] === team && <Zap className="h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto" />}
+                            {shockLog[i+1] === team && <ShockIcon className="h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto" />}
                         </TableCell>
                     ))}
                     <TableCell className="bg-muted/50"></TableCell>
                     {Array.from({length: 4}).map((_, i) => (
                         <TableCell key={`shock-r${i+5}`} className="text-center">
-                            {shockLog[i+5] === team && <Zap className="h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto" />}
+                            {shockLog[i+5] === team && <ShockIcon className="h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto" />}
                         </TableCell>
                     ))}
                     <TableCell className="bg-muted/50"></TableCell>
                     {Array.from({length: 4}).map((_, i) => (
                         <TableCell key={`shock-r${i+9}`} className="text-center">
-                             {shockLog[i+9] === team && <Zap className="h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto" />}
+                             {shockLog[i+9] === team && <ShockIcon className="h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto" />}
                         </TableCell>
                     ))}
                     <TableCell className="bg-muted/50"></TableCell>
