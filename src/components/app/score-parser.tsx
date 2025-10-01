@@ -247,11 +247,11 @@ export default function ScoreParser() {
     setIsLoading(true);
 
     const demoPlayers = [
-        'Tidus', 'Yuna', 'Auron', 'Wakka', 'Lulu', 'Rikku',
+        'Sipgb', 'elgraco', 'vick', 'Oniix', 'Wolfeet', 'Morioh',
         'Jecht', 'Braska', 'Cid', 'Wedge', 'Biggs', 'Seymour'
     ];
 
-    const blueTeamName = 'JJ (BLUE)';
+    const blueTeamName = 'old legends (BLUE)';
     const redTeamName = 'DS (RED)';
 
     const newMergedData: MergedRaceData = {};
