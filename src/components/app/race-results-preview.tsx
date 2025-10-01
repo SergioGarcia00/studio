@@ -210,15 +210,15 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                   </TableRow>
                 ))}
                 
-                {tIndex === 0 && (
+                {tIndex === 0 && blueTeamName && (
                 <React.Fragment>
                   <TableRow className='bg-muted/20 font-bold'>
                     <TableCell className="sticky left-0 bg-card/95">Puntos Equipo Azul</TableCell>
-                    {teamStats.blue.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono flex items-center justify-center gap-1">{s} {shockLog[i+1] === teamStats.blue.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</TableCell>)}
+                    {teamStats.blue.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s} {shockLog[i+1] === teamStats.blue.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</div></TableCell>)}
                     <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp1}</TableCell>
-                    {teamStats.blue.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono flex items-center justify-center gap-1">{s} {shockLog[i+5] === teamStats.blue.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</TableCell>)}
+                    {teamStats.blue.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s} {shockLog[i+5] === teamStats.blue.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</div></TableCell>)}
                     <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp2}</TableCell>
-                    {teamStats.blue.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono flex items-center justify-center gap-1">{s} {shockLog[i+9] === teamStats.blue.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</TableCell>)}
+                    {teamStats.blue.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s} {shockLog[i+9] === teamStats.blue.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</div></TableCell>)}
                     <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp3}</TableCell>
                     <TableCell></TableCell>
                     <TableCell className="text-center font-mono">{teamStats.blue.total}</TableCell>
@@ -234,17 +234,19 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     <TableCell></TableCell>
                     <TableCell className="text-center font-mono">{teamStats.diff.total > 0 ? `+${teamStats.diff.total}`: teamStats.diff.total}</TableCell>
                   </TableRow>
+                   {redTeamName && (
                   <TableRow className='bg-muted/20 font-bold'>
                     <TableCell className="sticky left-0 bg-card/95">Puntos Equipo Rojo</TableCell>
-                     {teamStats.red.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono flex items-center justify-center gap-1">{s} {shockLog[i+1] === teamStats.red.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</TableCell>)}
+                     {teamStats.red.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s} {shockLog[i+1] === teamStats.red.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</div></TableCell>)}
                     <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp1}</TableCell>
-                    {teamStats.red.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono flex items-center justify-center gap-1">{s} {shockLog[i+5] === teamStats.red.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</TableCell>)}
+                    {teamStats.red.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s} {shockLog[i+5] === teamStats.red.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</div></TableCell>)}
                     <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp2}</TableCell>
-                    {teamStats.red.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono flex items-center justify-center gap-1">{s} {shockLog[i+9] === teamStats.red.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</TableCell>)}
+                    {teamStats.red.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s} {shockLog[i+9] === teamStats.red.name && <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" />}</div></TableCell>)}
                     <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp3}</TableCell>
                     <TableCell></TableCell>
                     <TableCell className="text-center font-mono">{teamStats.red.total}</TableCell>
                   </TableRow>
+                  )}
                 </React.Fragment>
                 )}
               </React.Fragment>

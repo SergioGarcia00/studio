@@ -279,7 +279,7 @@ export default function ScoreParser() {
             newMergedData[name].ranks[i] = shuffledRanks[pIndex];
         });
 
-        // Assign one shock per race randomly
+        // Assign one shock per race randomly to a team
         if (Math.random() < 0.8) { // 80% chance for a race to have a shock
           const shockedTeam = Math.random() < 0.5 ? blueTeamName : redTeamName;
           newShockLog[i + 1] = shockedTeam;
@@ -574,7 +574,7 @@ export default function ScoreParser() {
         {images.length > 0 && !isLoading && (
           <Card className="shadow-md">
             <CardHeader>
-              <CardTitle>Images Queued ({images.length})</CardTitle>
+              <CardTitle>Queued Images ({images.length})</CardTitle>
             </CardHeader>
             <CardContent className='grid grid-cols-2 md:grid-cols-3 gap-2'>
               {images.map((file, index) => (
