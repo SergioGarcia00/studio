@@ -14,6 +14,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import React from 'react';
 import html2canvas from 'html2canvas';
+import { exportToCsv } from '@/lib/csv-utils';
+import { Button } from '../ui/button';
+import { FileDown, ImageDown } from 'lucide-react';
 
 interface RaceResultsPreviewProps {
   data: Player[];
@@ -22,6 +25,7 @@ interface RaceResultsPreviewProps {
 
 export interface RaceResultsPreviewRef {
   downloadAsPng: () => void;
+  downloadAsCsv: () => void;
 }
 
 const RANK_TO_SCORE: { [key: string]: number } = {
@@ -44,9 +48,7 @@ const getRankClass = (rank: string | null) => {
 
 const ShockIcon = ({ className }: { className?: string }) => (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
+      preserveAspectRatio="xMidYMid meet"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -61,29 +63,9 @@ const ShockIcon = ({ className }: { className?: string }) => (
 
 
 export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsPreviewProps>(({ data, shockLog }, ref) => {
-  const printRef = useRef<HTMLTableElement>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
-  useImperativeHandle(ref, () => ({
-    downloadAsPng: async () => {
-      const element = printRef.current;
-      if (element) {
-        const backgroundColorHsl = getComputedStyle(document.documentElement).getPropertyValue('--card').trim();
-        const canvas = await html2canvas(element, {
-            scale: 2,
-            backgroundColor: `hsl(${backgroundColorHsl})`,
-        });
-        const data = canvas.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.href = data;
-        link.download = 'race-results.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    },
-  }));
-
-  const groupedData = useMemo(() => {
+    const groupedData = useMemo(() => {
     const validPlayers = data.filter(player => player.isValid);
     const groups: { [key: string]: Player[] } = {};
     
@@ -154,6 +136,91 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
   }, [groupedData, blueTeamName, redTeamName]);
 
 
+  useImperativeHandle(ref, () => ({
+    downloadAsPng: async () => {
+      const element = printRef.current;
+      if (!element) return;
+
+      const clonedElement = element.cloneNode(true) as HTMLElement;
+      
+      clonedElement.style.position = 'absolute';
+      clonedElement.style.left = '-9999px';
+      clonedElement.style.top = '0px';
+      clonedElement.style.width = `${element.scrollWidth}px`;
+      
+      document.body.appendChild(clonedElement);
+
+      const backgroundColorHsl = getComputedStyle(document.documentElement).getPropertyValue('--card').trim();
+      const canvas = await html2canvas(clonedElement, {
+          scale: 2,
+          backgroundColor: `hsl(${backgroundColorHsl})`,
+          useCORS: true,
+          allowTaint: true,
+      });
+
+      document.body.removeChild(clonedElement);
+      
+      const data = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = data;
+      link.download = 'race-results.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    },
+    downloadAsCsv: () => {
+        const csvData = [];
+        const headers = ['Player', 'R1', 'R2', 'R3', 'R4', 'GP1', 'R5', 'R6', 'R7', 'R8', 'GP2', 'R9', 'R10', 'R11', 'R12', 'GP3', 'Rank', 'Total'];
+
+        Object.entries(groupedData).forEach(([team, players]) => {
+            csvData.push({Player: team}); // Team name row
+            players.forEach(p => {
+                csvData.push({
+                    Player: p.playerName,
+                    R1: rankToScore(p.ranks[0]), R2: rankToScore(p.ranks[1]), R3: rankToScore(p.ranks[2]), R4: rankToScore(p.ranks[3]),
+                    GP1: p.gp1,
+                    R5: rankToScore(p.ranks[4]), R6: rankToScore(p.ranks[5]), R7: rankToScore(p.ranks[6]), R8: rankToScore(p.ranks[7]),
+                    GP2: p.gp2,
+                    R9: rankToScore(p.ranks[8]), R10: rankToScore(p.ranks[9]), R11: rankToScore(p.ranks[10]), R12: rankToScore(p.ranks[11]),
+                    GP3: p.gp3,
+                    Rank: p.rank,
+                    Total: p.total,
+                });
+            });
+
+             if (blueTeamName && team === blueTeamName) {
+                const { blue, red, diff } = teamStats;
+                csvData.push({Player: ''}); // Spacer
+                csvData.push({
+                    Player: 'Puntos Equipo Azul',
+                    R1: blue.raceScores[0], R2: blue.raceScores[1], R3: blue.raceScores[2], R4: blue.raceScores[3], GP1: blue.gp1,
+                    R5: blue.raceScores[4], R6: blue.raceScores[5], R7: blue.raceScores[6], R8: blue.raceScores[7], GP2: blue.gp2,
+                    R9: blue.raceScores[8], R10: blue.raceScores[9], R11: blue.raceScores[10], R12: blue.raceScores[11], GP3: blue.gp3,
+                    Total: blue.total,
+                });
+                 csvData.push({
+                    Player: 'Diferencia',
+                    R1: diff.raceScores[0], R2: diff.raceScores[1], R3: diff.raceScores[2], R4: diff.raceScores[3], GP1: diff.gp1,
+                    R5: diff.raceScores[4], R6: diff.raceScores[5], R7: diff.raceScores[6], R8: diff.raceScores[7], GP2: diff.gp2,
+                    R9: diff.raceScores[8], R10: diff.raceScores[9], R11: diff.raceScores[10], R12: diff.raceScores[11], GP3: diff.gp3,
+                    Total: diff.total,
+                });
+                csvData.push({
+                    Player: 'Puntos Equipo Rojo',
+                    R1: red.raceScores[0], R2: red.raceScores[1], R3: red.raceScores[2], R4: red.raceScores[3], GP1: red.gp1,
+                    R5: red.raceScores[4], R6: red.raceScores[5], R7: red.raceScores[6], R8: red.raceScores[7], GP2: red.gp2,
+                    R9: red.raceScores[8], R10: red.raceScores[9], R11: red.raceScores[10], R12: red.raceScores[11], GP3: red.gp3,
+                    Total: red.total,
+                });
+                csvData.push({Player: ''}); // Spacer
+            }
+        });
+        
+        exportToCsv(csvData, 'race-summary.csv', headers);
+    }
+  }));
+
+
   const teamColors: { [key: string]: string } = {
     'JJ (BLUE)': 'bg-blue-900/50',
     'DS (RED)': 'bg-red-900/50',
@@ -163,8 +230,8 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
   const numColumns = 12 + 3 + 3; // 12 races + 3 GPs + Player + Rank + Total
 
   return (
-    <ScrollArea className="h-[70vh] w-full">
-      <Table ref={printRef} className='border-collapse border-spacing-0 bg-card'>
+    <ScrollArea className="h-[70vh] w-full" ref={printRef}>
+      <Table className='border-collapse border-spacing-0 bg-card'>
         <TableHeader className='sticky top-0 bg-background z-10'>
           <TableRow>
             <TableHead className="w-[150px] font-bold text-lg sticky left-0 bg-background">Player</TableHead>
@@ -302,5 +369,3 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
 });
 
 RaceResultsPreview.displayName = 'RaceResultsPreview';
-
-    

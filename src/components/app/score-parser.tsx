@@ -16,6 +16,7 @@ import {
  Zap,
  ImageDown,
  TestTube2,
+ FileDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -709,10 +710,16 @@ export default function ScoreParser() {
                         <DialogContent className="max-w-7xl">
                             <DialogHeader className="flex-row items-center justify-between">
                                 <DialogTitle>Race Results Preview</DialogTitle>
-                                <Button variant="outline" onClick={() => previewRef.current?.downloadAsPng()} disabled={allPlayers.length === 0}>
-                                    <ImageDown className="mr-2 h-4 w-4" />
-                                    Download PNG
-                                </Button>
+                                <div className='flex items-center gap-2'>
+                                  <Button variant="outline" onClick={() => previewRef.current?.downloadAsCsv()} disabled={allPlayers.length === 0}>
+                                      <FileDown className="mr-2 h-4 w-4" />
+                                      Export to Excel
+                                  </Button>
+                                  <Button variant="outline" onClick={() => previewRef.current?.downloadAsPng()} disabled={allPlayers.length === 0}>
+                                      <ImageDown className="mr-2 h-4 w-4" />
+                                      Download PNG
+                                  </Button>
+                                </div>
                             </DialogHeader>
                             <RaceResultsPreview ref={previewRef} data={allPlayers as Player[]} shockLog={shockLog} />
                         </DialogContent>
@@ -851,5 +858,3 @@ export default function ScoreParser() {
     </div>
   );
 }
-
-    
