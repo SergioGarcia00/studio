@@ -717,7 +717,7 @@ export default function ScoreParser() {
                                   </Button>
                                   <Button variant="outline" onClick={() => previewRef.current?.downloadAsPng()} disabled={allPlayers.length === 0}>
                                       <ImageDown className="mr-2 h-4 w-4" />
-                                      Download PNG
+                                      Does nothing now
                                   </Button>
                                 </div>
                             </DialogHeader>
