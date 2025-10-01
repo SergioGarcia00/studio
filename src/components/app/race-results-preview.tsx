@@ -16,7 +16,7 @@ import React from 'react';
 import html2canvas from 'html2canvas';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Button } from '../ui/button';
-import { FileDown, ImageDown } from 'lucide-react';
+import { FileDown, ImageDown, Zap } from 'lucide-react';
 
 interface RaceResultsPreviewProps {
   data: Player[];
@@ -47,18 +47,18 @@ const getRankClass = (rank: string | null) => {
 };
 
 const ShockIcon = ({ className }: { className?: string }) => (
-    <svg
-      preserveAspectRatio="xMidYMid meet"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
+  <svg
+    preserveAspectRatio="xMidYMid meet"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={cn("h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto", className)}
+  >
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  </svg>
 );
 
 
@@ -88,8 +88,8 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     });
     
     const teamOrder = Object.keys(groups).sort((a, b) => {
-        const aIsBlue = a.includes('BLUE');
-        const bIsBlue = b.includes('BLUE');
+        const aIsBlue = a.toLowerCase().includes('blue');
+        const bIsBlue = b.toLowerCase().includes('blue');
         if (aIsBlue && !bIsBlue) return -1;
         if (!aIsBlue && bIsBlue) return 1;
         return 0;
@@ -98,8 +98,8 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     return Object.fromEntries(teamOrder.map(team => [team, groups[team]]));
   }, [data]);
   
-  const blueTeamName = Object.keys(groupedData).find(team => team.includes('BLUE'));
-  const redTeamName = Object.keys(groupedData).find(team => team.includes('RED'));
+  const blueTeamName = Object.keys(groupedData).find(team => team.toLowerCase().includes('blue'));
+  const redTeamName = Object.keys(groupedData).find(team => team.toLowerCase().includes('red'));
 
   const teamStats = useMemo(() => {
     const bluePlayers = blueTeamName ? groupedData[blueTeamName] : [];
@@ -172,7 +172,9 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
         const csvData: any[] = [];
         const headers = ['Player', 'R1', 'R2', 'R3', 'R4', 'GP1', 'R5', 'R6', 'R7', 'R8', 'GP2', 'R9', 'R10', 'R11', 'R12', 'GP3', 'Rank', 'Total'];
 
-        Object.entries(groupedData).forEach(([team, players], teamIndex) => {
+        const teamEntries = Object.entries(groupedData);
+
+        teamEntries.forEach(([team, players], teamIndex) => {
             csvData.push({Player: team}); // Team name row
             players.forEach(p => {
                 csvData.push({
@@ -188,8 +190,8 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                 });
             });
 
-             // Add team stats after the first team block
-             if (teamIndex === 0 && blueTeamName) {
+             // Add team stats in the middle
+            if (teamIndex === 0 && teamEntries.length > 1) {
                 const { blue, red, diff } = teamStats;
                 csvData.push({Player: ''}); // Spacer
                 csvData.push({
@@ -223,12 +225,6 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     }
   }));
 
-
-  const teamColors: { [key: string]: string } = {
-    'JJ (BLUE)': 'bg-blue-900/50',
-    'DS (RED)': 'bg-red-900/50',
-  };
-
   const hasData = Object.keys(groupedData).length > 0;
   const numColumns = 12 + 3 + 3; // 12 races + 3 GPs + Player + Rank + Total
 
@@ -259,30 +255,13 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
           {hasData ? (
             Object.entries(groupedData).map(([team, players], tIndex) => (
               <React.Fragment key={team}>
-                <TableRow className={cn('font-bold text-lg', teamColors[team] || 'bg-muted/50')}>
+                <TableRow className={cn('font-bold text-lg',
+                    team.toLowerCase().includes('blue') ? 'bg-blue-900/50' : team.toLowerCase().includes('red') ? 'bg-red-900/50' : 'bg-muted/50'
+                )}>
                     <TableCell className="sticky left-0">
                         {team}
                     </TableCell>
-                    {Array.from({length: 4}).map((_, i) => (
-                        <TableCell key={`shock-r${i+1}`} className="text-center">
-                            {shockLog[i+1] === team && <ShockIcon className="h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto" />}
-                        </TableCell>
-                    ))}
-                    <TableCell className="bg-muted/50"></TableCell>
-                    {Array.from({length: 4}).map((_, i) => (
-                        <TableCell key={`shock-r${i+5}`} className="text-center">
-                            {shockLog[i+5] === team && <ShockIcon className="h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto" />}
-                        </TableCell>
-                    ))}
-                    <TableCell className="bg-muted/50"></TableCell>
-                    {Array.from({length: 4}).map((_, i) => (
-                        <TableCell key={`shock-r${i+9}`} className="text-center">
-                             {shockLog[i+9] === team && <ShockIcon className="h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto" />}
-                        </TableCell>
-                    ))}
-                    <TableCell className="bg-muted/50"></TableCell>
-                    <TableCell></TableCell>
-                    <TableCell></TableCell>
+                     <TableCell colSpan={numColumns -1}></TableCell>
                 </TableRow>
                 {players.map((player, pIndex) => (
                   <TableRow key={pIndex}>
@@ -290,6 +269,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     {player.ranks.slice(0,4).map((rank, sIndex) => (
                         <TableCell key={sIndex} className={cn("text-center font-mono", getRankClass(rank))}>
                           <div className='flex items-center justify-center gap-1'>
+                            {shockLog[sIndex+1] === player.team && <ShockIcon className='h-4 w-4' />}
                             {rank ?? '-'}
                           </div>
                         </TableCell>
@@ -298,6 +278,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     {player.ranks.slice(4,8).map((rank, sIndex) => (
                         <TableCell key={sIndex+4} className={cn("text-center font-mono", getRankClass(rank))}>
                           <div className='flex items-center justify-center gap-1'>
+                             {shockLog[sIndex+5] === player.team && <ShockIcon className='h-4 w-4' />}
                             {rank ?? '-'}
                           </div>
                         </TableCell>
@@ -306,6 +287,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                      {player.ranks.slice(8,12).map((rank, sIndex) => (
                         <TableCell key={sIndex+8} className={cn("text-center font-mono", getRankClass(rank))}>
                           <div className='flex items-center justify-center gap-1'>
+                            {shockLog[sIndex+9] === player.team && <ShockIcon className='h-4 w-4' />}
                             {rank ?? '-'}
                           </div>
                         </TableCell>
@@ -317,43 +299,49 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                   </TableRow>
                 ))}
                 
-                {((blueTeamName && team === blueTeamName) || (redTeamName && team === redTeamName && !blueTeamName)) && (
+                {tIndex === 0 && Object.keys(groupedData).length > 1 && (
                 <React.Fragment>
-                  <TableRow className='font-bold border-y'>
-                    <TableCell className="sticky left-0 bg-card/95">Puntos Equipo Azul</TableCell>
-                    {teamStats.blue.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
-                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp1}</TableCell>
-                    {teamStats.blue.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
-                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp2}</TableCell>
-                    {teamStats.blue.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
-                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp3}</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-center font-mono">{teamStats.blue.total}</TableCell>
-                  </TableRow>
-                  <TableRow className='font-bold border-y'>
-                    <TableCell className="sticky left-0 bg-card/95">Diferencia</TableCell>
-                    {teamStats.diff.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className={cn("text-center font-mono", s > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
-                    <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp1 > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp1)}</TableCell>
-                    {teamStats.diff.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className={cn("text-center font-mono", s > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
-                    <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp2 > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp2)}</TableCell>
-                    {teamStats.diff.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className={cn("text-center font-mono", s > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
-                    <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp3 > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp3)}</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className={cn("text-center font-mono", teamStats.diff.total > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.total)}</TableCell>
-                  </TableRow>
-                   {redTeamName && (
-                  <TableRow className='font-bold border-y'>
-                    <TableCell className="sticky left-0 bg-card/95">Puntos Equipo Rojo</TableCell>
-                     {teamStats.red.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
-                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp1}</TableCell>
-                    {teamStats.red.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
-                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp2}</TableCell>
-                    {teamStats.red.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
-                    <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp3}</TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-center font-mono">{teamStats.red.total}</TableCell>
-                  </TableRow>
-                  )}
+                    <TableRow className="h-2 bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={numColumns}></TableCell>
+                    </TableRow>
+                    <TableRow className='font-bold border-y'>
+                        <TableCell className="sticky left-0 bg-card/95">Puntos Equipo Azul</TableCell>
+                        {teamStats.blue.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
+                        <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp1}</TableCell>
+                        {teamStats.blue.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
+                        <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp2}</TableCell>
+                        {teamStats.blue.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
+                        <TableCell className="text-center font-mono bg-muted/50">{teamStats.blue.gp3}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className="text-center font-mono">{teamStats.blue.total}</TableCell>
+                    </TableRow>
+                    <TableRow className='font-bold border-y'>
+                        <TableCell className="sticky left-0 bg-card/95">Diferencia</TableCell>
+                        {teamStats.diff.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className={cn("text-center font-mono", s > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
+                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp1 > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp1)}</TableCell>
+                        {teamStats.diff.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className={cn("text-center font-mono", s > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
+                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp2 > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp2)}</TableCell>
+                        {teamStats.diff.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className={cn("text-center font-mono", s > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
+                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp3 > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp3)}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className={cn("text-center font-mono", teamStats.diff.total > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.total)}</TableCell>
+                    </TableRow>
+                    {redTeamName && (
+                    <TableRow className='font-bold border-y'>
+                        <TableCell className="sticky left-0 bg-card/95">Puntos Equipo Rojo</TableCell>
+                        {teamStats.red.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
+                        <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp1}</TableCell>
+                        {teamStats.red.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
+                        <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp2}</TableCell>
+                        {teamStats.red.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className="text-center font-mono"><div className='flex items-center justify-center gap-1'>{s}</div></TableCell>)}
+                        <TableCell className="text-center font-mono bg-muted/50">{teamStats.red.gp3}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className="text-center font-mono">{teamStats.red.total}</TableCell>
+                    </TableRow>
+                    )}
+                     <TableRow className="h-2 bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={numColumns}></TableCell>
+                    </TableRow>
                 </React.Fragment>
                 )}
               </React.Fragment>
