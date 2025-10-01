@@ -99,10 +99,10 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     return Object.fromEntries(teamOrder.map(team => [team, groups[team]]));
   }, [data]);
   
-  const teamStats = useMemo(() => {
-    const blueTeamName = Object.keys(groupedData).find(team => team.includes('BLUE'));
-    const redTeamName = Object.keys(groupedData).find(team => team.includes('RED'));
+  const blueTeamName = Object.keys(groupedData).find(team => team.includes('BLUE'));
+  const redTeamName = Object.keys(groupedData).find(team => team.includes('RED'));
 
+  const teamStats = useMemo(() => {
     const bluePlayers = blueTeamName ? groupedData[blueTeamName] : [];
     const redPlayers = redTeamName ? groupedData[redTeamName] : [];
 
@@ -134,7 +134,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
       red: { name: redTeamName || 'Team Red', ...redScores },
       diff: { raceScores: raceDifference, gp1: gp1Diff, gp2: gp2Diff, gp3: gp3Diff, total: totalDiff },
     };
-  }, [groupedData]);
+  }, [groupedData, blueTeamName, redTeamName]);
 
 
   const teamColors: { [key: string]: string } = {
