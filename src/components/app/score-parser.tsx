@@ -225,17 +225,17 @@ export default function ScoreParser() {
       });
   }, []);
 
-  const handleToggleShock = (raceNumber: number, playerTeam: string) => {
+  const handleToggleShock = (raceNumber: number, team: string) => {
     setShockLog(currentLog => {
       const newLog = { ...currentLog };
       const currentShockedTeam = newLog[raceNumber];
   
-      if (currentShockedTeam === playerTeam) {
+      if (currentShockedTeam === team) {
         // If the same team is clicked, remove the shock
         delete newLog[raceNumber];
       } else {
         // Otherwise, set the shock for this team
-        newLog[raceNumber] = playerTeam;
+        newLog[raceNumber] = team;
       }
       
       return newLog;
@@ -694,7 +694,6 @@ export default function ScoreParser() {
                               <TableHead>Team</TableHead>
                               <TableHead className="text-right">Total Score</TableHead>
                               <TableHead>Rank</TableHead>
-                              <TableHead>Shock</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -704,23 +703,41 @@ export default function ScoreParser() {
                                 <TableCell>{player.team || 'N/A'}</TableCell>
                                 <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
                                 <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
-                                <TableCell>
-                                   <Zap
-                                    className={cn(
-                                      'h-4 w-4 cursor-pointer text-gray-300 transition-colors',
-                                      shockLog[result.raceNumber] === player.team && 'text-yellow-400 fill-yellow-400'
-                                    )}
-                                    onClick={() => handleToggleShock(result.raceNumber, player.team)}
-                                  />
-                                </TableCell>
                               </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    <TableCell colSpan={4} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
                                 </TableRow>
                             )}
                           </TableBody>
                         </Table>
+                      </div>
+                      <div className='flex items-center justify-end gap-2 mt-4 p-2 border-t'>
+                          <span className='text-sm font-medium mr-2'>Shock:</span>
+                          <Button 
+                              size="sm" 
+                              onClick={() => handleToggleShock(result.raceNumber, 'JJ (BLUE)')}
+                              className={cn(
+                                'border-blue-500 text-blue-500',
+                                shockLog[result.raceNumber] === 'JJ (BLUE)' ? 'bg-blue-500/20' : 'bg-transparent'
+                              )}
+                              variant={shockLog[result.raceNumber] === 'JJ (BLUE)' ? 'secondary' : 'outline'}
+                          >
+                            <Zap className="mr-2 h-4 w-4" />
+                            Rayo Azul
+                          </Button>
+                          <Button 
+                              size="sm"
+                              onClick={() => handleToggleShock(result.raceNumber, 'DS (RED)')}
+                              className={cn(
+                                'border-red-500 text-red-500',
+                                shockLog[result.raceNumber] === 'DS (RED)' ? 'bg-red-500/20' : 'bg-transparent'
+                              )}
+                               variant={shockLog[result.raceNumber] === 'DS (RED)' ? 'secondary' : 'outline'}
+                          >
+                             <Zap className="mr-2 h-4 w-4" />
+                            Rayo Rojo
+                          </Button>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -756,3 +773,5 @@ export default function ScoreParser() {
     </div>
   );
 }
+
+    
