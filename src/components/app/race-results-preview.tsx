@@ -53,7 +53,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
       if (element) {
         const canvas = await html2canvas(element, {
             scale: 2,
-            backgroundColor: null,
+            backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--card'),
         });
         const data = canvas.toDataURL('image/png');
         const link = document.createElement('a');
