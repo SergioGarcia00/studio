@@ -296,7 +296,7 @@ export default function ScoreParser() {
             data: demoPlayers.map(p => ({
                 playerName: p,
                 team: newMergedData[p].team,
-                score: 0, // Not relevant for this view
+                score: rankToScore(newMergedData[p].ranks[i]),
                 rank: newMergedData[p].ranks[i]!,
                 isValid: true,
             }))
@@ -393,16 +393,13 @@ export default function ScoreParser() {
 
         const aiResult = await extractRaceDataFromImage(input);
         
-        const finalRaceData = aiResult.map(player => {
-            const rankSuffixes = ['st', 'nd', 'rd'];
-            const rankValue = Object.keys(RANK_TO_SCORE).find(key => RANK_TO_SCORE[key] === player.score);
-            const rank = rankValue || `?th`;
-            return {
-              ...player,
-              rank,
-            };
-        });
-        
+        // The AI now returns the rank directly. No need to recalculate it from score.
+        const finalRaceData = aiResult.map(player => ({
+            ...player,
+            // The rank is directly from the AI, ensure it's not null.
+            rank: player.rank || '?th', 
+        }));
+
         newExtractedResult = {
           imageUrl: url,
           filename: file.name,
