@@ -169,10 +169,10 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
       document.body.removeChild(link);
     },
     downloadAsCsv: () => {
-        const csvData = [];
+        const csvData: any[] = [];
         const headers = ['Player', 'R1', 'R2', 'R3', 'R4', 'GP1', 'R5', 'R6', 'R7', 'R8', 'GP2', 'R9', 'R10', 'R11', 'R12', 'GP3', 'Rank', 'Total'];
 
-        Object.entries(groupedData).forEach(([team, players]) => {
+        Object.entries(groupedData).forEach(([team, players], teamIndex) => {
             csvData.push({Player: team}); // Team name row
             players.forEach(p => {
                 csvData.push({
@@ -188,7 +188,8 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                 });
             });
 
-             if (blueTeamName && team === blueTeamName) {
+             // Add team stats after the first team block
+             if (teamIndex === 0 && blueTeamName) {
                 const { blue, red, diff } = teamStats;
                 csvData.push({Player: ''}); // Spacer
                 csvData.push({
@@ -205,13 +206,15 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     R9: diff.raceScores[8], R10: diff.raceScores[9], R11: diff.raceScores[10], R12: diff.raceScores[11], GP3: diff.gp3,
                     Total: diff.total,
                 });
-                csvData.push({
-                    Player: 'Puntos Equipo Rojo',
-                    R1: red.raceScores[0], R2: red.raceScores[1], R3: red.raceScores[2], R4: red.raceScores[3], GP1: red.gp1,
-                    R5: red.raceScores[4], R6: red.raceScores[5], R7: red.raceScores[6], R8: red.raceScores[7], GP2: red.gp2,
-                    R9: red.raceScores[8], R10: red.raceScores[9], R11: red.raceScores[10], R12: red.raceScores[11], GP3: red.gp3,
-                    Total: red.total,
-                });
+                if (redTeamName) {
+                  csvData.push({
+                      Player: 'Puntos Equipo Rojo',
+                      R1: red.raceScores[0], R2: red.raceScores[1], R3: red.raceScores[2], R4: red.raceScores[3], GP1: red.gp1,
+                      R5: red.raceScores[4], R6: red.raceScores[5], R7: red.raceScores[6], R8: red.raceScores[7], GP2: red.gp2,
+                      R9: red.raceScores[8], R10: red.raceScores[9], R11: red.raceScores[10], R12: red.raceScores[11], GP3: red.gp3,
+                      Total: red.total,
+                  });
+                }
                 csvData.push({Player: ''}); // Spacer
             }
         });
@@ -314,7 +317,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                   </TableRow>
                 ))}
                 
-                {tIndex === 0 && blueTeamName && (
+                {((blueTeamName && team === blueTeamName) || (redTeamName && team === redTeamName && !blueTeamName)) && (
                 <React.Fragment>
                   <TableRow className='bg-muted/20 font-bold'>
                     <TableCell className="sticky left-0 bg-card/95">Puntos Equipo Azul</TableCell>
