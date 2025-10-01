@@ -247,7 +247,7 @@ export default function ScoreParser() {
     setIsLoading(true);
 
     const demoPlayers = [
-        'Sipgb', 'elgraco', 'vick', 'Oniix', 'Wolfeet', 'Morioh',
+        'Sipgb', 'Elgraco', 'Vick', 'Oniix', 'Wolfeet', 'Morioh',
         'Jecht', 'Braska', 'Cid', 'Wedge', 'Biggs', 'Seymour'
     ];
 
@@ -773,5 +773,7 @@ export default function ScoreParser() {
     </div>
   );
 }
+
+    
 
     
