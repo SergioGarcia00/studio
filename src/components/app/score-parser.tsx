@@ -29,7 +29,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
-import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput, RacePlayerResult } from '@/ai/types';
+import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput, RacePlayerResult, ShockLog } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -61,6 +61,7 @@ export default function ScoreParser() {
   const [playerNames, setPlayerNames] = useState('');
   const [extractedData, setExtractedData] = useState<ExtractedData[]>([]);
   const [mergedData, setMergedData] = useState<MergedRaceData>({});
+  const [shockLog, setShockLog] = useState<ShockLog>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -172,7 +173,6 @@ export default function ScoreParser() {
               playerName: name,
               team: 'Unassigned',
               ranks: Array(12).fill(null),
-              shocks: [],
               gp1: null, gp2: null, gp3: null,
               total: null, rank: null, isValid: true,
             };
@@ -198,7 +198,6 @@ export default function ScoreParser() {
                   playerName: masterName,
                   team: racePlayer.team,
                   ranks: Array(12).fill(null),
-                  shocks: [],
                   gp1: null, gp2: null, gp3: null,
                   total: null, rank: null, isValid: true,
                 };
@@ -226,54 +225,20 @@ export default function ScoreParser() {
       });
   }, []);
 
-  const handleToggleShock = (raceNumber: number, playerIndex: number) => {
-    setExtractedData(currentExtractedData => {
-      const updatedExtractedData = [...currentExtractedData];
-      const targetRace = updatedExtractedData.find(r => r.raceNumber === raceNumber);
-      if (!targetRace) return currentExtractedData;
+  const handleToggleShock = (raceNumber: number, playerTeam: string) => {
+    setShockLog(currentLog => {
+      const newLog = { ...currentLog };
+      const currentShockedTeam = newLog[raceNumber];
   
-      const targetPlayerResult = targetRace.data[playerIndex];
-      if (!targetPlayerResult) return currentExtractedData;
-  
-      const isCurrentlyShocked = targetPlayerResult.shocked;
-  
-      // Clear all shocks for this race
-      targetRace.data.forEach(player => {
-        player.shocked = false;
-      });
-  
-      // If the player was not shocked before, set them as shocked
-      if (!isCurrentlyShocked) {
-        targetPlayerResult.shocked = true;
+      if (currentShockedTeam === playerTeam) {
+        // If the same team is clicked, remove the shock
+        delete newLog[raceNumber];
+      } else {
+        // Otherwise, set the shock for this team
+        newLog[raceNumber] = playerTeam;
       }
-      // If they were already shocked, they are now un-shocked from the previous step.
-  
-      // Now, sync the changes with the mergedData state
-      setMergedData(prevMergedData => {
-        let updatedMergedData = JSON.parse(JSON.stringify(prevMergedData)) as MergedRaceData;
-  
-        // Remove this race from any player's shock list
-        Object.values(updatedMergedData).forEach(player => {
-          const shockIndex = player.shocks.indexOf(raceNumber);
-          if (shockIndex > -1) {
-            player.shocks.splice(shockIndex, 1);
-          }
-        });
-  
-        // If a player is now shocked, add it to their list in mergedData
-        if (!isCurrentlyShocked) {
-          const masterPlayerName = getMasterPlayerName(targetPlayerResult.playerName, Object.keys(updatedMergedData));
-          if (masterPlayerName && updatedMergedData[masterPlayerName]) {
-            updatedMergedData[masterPlayerName].shocks.push(raceNumber);
-          }
-        }
-        
-        // Recalculate everything just in case, although shock doesn't affect totals
-        const finalData = recalculateAllTotals(updatedMergedData);
-        return finalData;
-      });
-  
-      return updatedExtractedData;
+      
+      return newLog;
     });
   };
 
@@ -286,14 +251,16 @@ export default function ScoreParser() {
         'Jecht', 'Braska', 'Cid', 'Wedge', 'Biggs', 'Seymour'
     ];
 
+    const blueTeamName = 'JJ (BLUE)';
+    const redTeamName = 'DS (RED)';
+
     const newMergedData: MergedRaceData = {};
 
     demoPlayers.forEach((name, index) => {
         newMergedData[name] = {
             playerName: name,
-            team: index < 6 ? 'JJ (BLUE)' : 'DS (RED)',
+            team: index < 6 ? blueTeamName : redTeamName,
             ranks: Array(12).fill(null),
-            shocks: [],
             gp1: null, gp2: null, gp3: null,
             total: null, rank: null, isValid: true,
         };
@@ -302,6 +269,7 @@ export default function ScoreParser() {
     const rankSuffixes = ['st', 'nd', 'rd'];
     const getRankString = (rank: number) => `${rank}${rankSuffixes[rank - 1] || 'th'}`;
     const allRanks = Array.from({ length: 12 }, (_, i) => getRankString(i + 1));
+    const newShockLog: ShockLog = {};
 
     for (let i = 0; i < 12; i++) { // For each race
         const shuffledRanks = [...allRanks].sort(() => Math.random() - 0.5);
@@ -313,9 +281,8 @@ export default function ScoreParser() {
 
         // Assign one shock per race randomly
         if (Math.random() < 0.8) { // 80% chance for a race to have a shock
-          const shockedPlayerIndex = Math.floor(Math.random() * demoPlayers.length);
-          const shockedPlayerName = demoPlayers[shockedPlayerIndex];
-          newMergedData[shockedPlayerName].shocks.push(i + 1);
+          const shockedTeam = Math.random() < 0.5 ? blueTeamName : redTeamName;
+          newShockLog[i + 1] = shockedTeam;
         }
     }
     
@@ -331,7 +298,6 @@ export default function ScoreParser() {
                 team: newMergedData[p].team,
                 score: 0, // Not relevant for this view
                 rank: newMergedData[p].ranks[i]!,
-                shocked: newMergedData[p].shocks.includes(i + 1),
                 isValid: true,
             }))
         });
@@ -341,6 +307,7 @@ export default function ScoreParser() {
     
     setExtractedData(newExtractedData);
     setMergedData(finalData);
+    setShockLog(newShockLog);
 
     setTimeout(() => {
         setIsLoading(false);
@@ -489,21 +456,21 @@ export default function ScoreParser() {
     const teams = Array.from(new Set(allPlayersInApp.map(p => p.team).filter(Boolean)));
     const teamA = teams.find(t => t.includes('BLUE')) || 'Team A';
     const teamB = teams.find(t => t.includes('RED')) || 'Team B';
-
-    const getPlayerTeam = (playerName: string) => {
-      const masterName = getMasterPlayerName(playerName, Object.keys(mergedData));
-      return mergedData[masterName]?.team || 'Unassigned';
-    }
     
-    const shocksTeamA = raceData.data.filter(p => p.shocked && getPlayerTeam(p.playerName) === teamA).length;
-    const shocksTeamB = raceData.data.filter(p => p.shocked && getPlayerTeam(p.playerName) === teamB).length;
+    const shockedTeam = shockLog[raceData.raceNumber];
+
+    const shocksTeamA = shockedTeam === teamA ? 1 : 0;
+    const shocksTeamB = shockedTeam === teamB ? 1 : 0;
 
 
     const csvData = raceData.data.map(player => {
+      const masterName = getMasterPlayerName(player.playerName, Object.keys(mergedData));
+      const playerTeam = mergedData[masterName]?.team || 'Unassigned';
+
       return {
         timestamp: new Date().toISOString(),
         race: raceData.raceNumber,
-        team: getPlayerTeam(player.playerName),
+        team: playerTeam,
         player: player.playerName,
         delta: player.rank,
         score: player.score,
@@ -534,6 +501,7 @@ export default function ScoreParser() {
     setProgress(0);
     setNextRaceNumber(1);
     setPlayerNames('');
+    setShockLog({});
     toast({
         title: "Results Cleared",
         description: "The review and download area has been cleared.",
@@ -670,7 +638,7 @@ export default function ScoreParser() {
                                     Download PNG
                                 </Button>
                             </DialogHeader>
-                            <RaceResultsPreview ref={previewRef} data={allPlayers as Player[]} />
+                            <RaceResultsPreview ref={previewRef} data={allPlayers as Player[]} shockLog={shockLog} />
                         </DialogContent>
                     </Dialog>
                      <Button onClick={handleClearResults} variant="destructive" size="icon">
@@ -740,9 +708,9 @@ export default function ScoreParser() {
                                    <Zap
                                     className={cn(
                                       'h-4 w-4 cursor-pointer text-gray-300 transition-colors',
-                                      player.shocked && 'text-yellow-400 fill-yellow-400'
+                                      shockLog[result.raceNumber] === player.team && 'text-yellow-400 fill-yellow-400'
                                     )}
-                                    onClick={() => handleToggleShock(result.raceNumber, pIndex)}
+                                    onClick={() => handleToggleShock(result.raceNumber, player.team)}
                                   />
                                 </TableCell>
                               </TableRow>

@@ -91,7 +91,6 @@ export const PlayerSchema = z.object({
   playerName: z.string(),
   team: z.string(),
   ranks: z.array(z.string().nullable()).length(12),
-  shocks: z.array(z.number()), // Array of race numbers with shocks
   gp1: z.number().nullable(),
   gp2: z.number().nullable(),
   gp3: z.number().nullable(),
@@ -113,4 +112,8 @@ export type MergedPlayer = Player;
 
 export type MergedRaceData = {
   [playerName: string]: MergedPlayer;
+}
+
+export type ShockLog = {
+  [raceNumber: number]: string; // team name
 }
