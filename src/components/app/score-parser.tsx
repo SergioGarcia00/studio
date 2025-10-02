@@ -302,6 +302,8 @@ export default function ScoreParser() {
  'Sipgb', 'Elgraco', 'Vick', 'Oniix', 'Wolfeet', 'Morioh',
  'Jecht', 'Braska', 'Cid', 'Wedge', 'Biggs', 'Seymour'
     ];
+    
+    const blueTeamPlayers = demoPlayers.slice(0, 6);
     const redTeamPlayers = demoPlayers.slice(6);
 
     const blueTeamName = 'old legends (BLUE)';
@@ -324,19 +326,33 @@ export default function ScoreParser() {
     const allRanks = Array.from({ length: 12 }, (_, i) => getRankString(i + 1));
     const newShockLog: ShockLog = {};
 
-    // --- Start of DC simulation ---
-    const dcRace = Math.floor(Math.random() * 12); // race index 0-11
-    const dcPlayerName = redTeamPlayers[Math.floor(Math.random() * redTeamPlayers.length)];
-    const ranksForDcRace = allRanks.slice(0, 11);
-    // --- End of DC simulation ---
+    // --- Scenario 1: Single DC ---
+    const singleDcRace = Math.floor(Math.random() * 12);
+    const singleDcPlayer = redTeamPlayers[Math.floor(Math.random() * redTeamPlayers.length)];
+
+    // --- Scenario 2: Double DC ---
+    let doubleDcRace;
+    do {
+      doubleDcRace = Math.floor(Math.random() * 12);
+    } while (doubleDcRace === singleDcRace);
+
+    const shuffledPlayers = [...demoPlayers].sort(() => Math.random() - 0.5);
+    const doubleDcPlayer1 = shuffledPlayers[0];
+    const doubleDcPlayer2 = shuffledPlayers[1];
 
     for (let i = 0; i < 12; i++) { // For each race
-        let ranksToAssign = [...allRanks];
-        let playersInRace = [...demoPlayers];
+        let ranksToAssign: (string | null)[];
+        let playersInRace: string[];
 
-        if (i === dcRace) {
-            ranksToAssign = [...ranksForDcRace];
-            playersInRace = demoPlayers.filter(p => p !== dcPlayerName);
+        if (i === singleDcRace) {
+            playersInRace = demoPlayers.filter(p => p !== singleDcPlayer);
+            ranksToAssign = allRanks.slice(0, 11);
+        } else if (i === doubleDcRace) {
+            playersInRace = demoPlayers.filter(p => p !== doubleDcPlayer1 && p !== doubleDcPlayer2);
+            ranksToAssign = allRanks.slice(0, 10);
+        } else {
+            playersInRace = [...demoPlayers];
+            ranksToAssign = [...allRanks];
         }
         
         ranksToAssign.sort(() => Math.random() - 0.5);
@@ -353,36 +369,22 @@ export default function ScoreParser() {
    
     let finalData = recalculateAllTotals(newMergedData);
 
-    const sortedPlayers = Object.values(finalData).sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
-    const vickPlayer = sortedPlayers.find(p => p.playerName === 'Vick');
-    const eighthPlayer = sortedPlayers[7];
-
-    if (vickPlayer && eighthPlayer && vickPlayer.playerName !== eighthPlayer.playerName) {
-        const vickOriginalTotal = vickPlayer.total;
-        const vickOriginalRank = vickPlayer.rank;
-
-        vickPlayer.total = eighthPlayer.total;
-        vickPlayer.rank = eighthPlayer.rank;
-
-        eighthPlayer.total = vickOriginalTotal;
-        eighthPlayer.rank = vickOriginalRank;
-
-        finalData[vickPlayer.playerName] = vickPlayer;
-        finalData[eighthPlayer.playerName] = eighthPlayer;
-    }
-
     const newExtractedData: ExtractedData[] = [];
     for (let i = 0; i < 12; i++) {
-        let playersForExtracted = [...demoPlayers];
-        if (i === dcRace) {
-            playersForExtracted = demoPlayers.filter(p => p !== dcPlayerName);
+        let playersForExtractedData;
+        if (i === singleDcRace) {
+            playersForExtractedData = demoPlayers.filter(p => p !== singleDcPlayer);
+        } else if (i === doubleDcRace) {
+            playersForExtractedData = demoPlayers.filter(p => p !== doubleDcPlayer1 && p !== doubleDcPlayer2);
+        } else {
+            playersForExtractedData = [...demoPlayers];
         }
-        
+
         newExtractedData.push({
             imageUrl: '',
             filename: `Demo Race ${i + 1}`,
             raceNumber: i + 1,
-            data: playersForExtracted.map(p => {
+            data: playersForExtractedData.map(p => {
                 const raceScore = rankToScore(finalData[p].ranks[i]);
                 const totalScore = finalData[p].ranks.slice(0, i + 1).reduce((acc, rank) => acc + rankToScore(rank), 0);
 
@@ -406,7 +408,7 @@ export default function ScoreParser() {
         setIsLoading(false);
         toast({
             title: "Demo Data Generated",
-            description: `12 races with a DC on Race ${dcRace + 1} for player ${dcPlayerName}.`,
+            description: `Simulated 1 DC on Race ${singleDcRace + 1} and 2 DCs on Race ${doubleDcRace + 1}.`,
             className: 'bg-accent text-accent-foreground'
         });
     }, 500);
@@ -931,3 +933,4 @@ export default function ScoreParser() {
     
 
     
+
