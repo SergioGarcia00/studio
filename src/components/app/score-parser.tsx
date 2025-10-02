@@ -56,8 +56,8 @@ const SCORE_TO_RANK: { [key: number]: string } = Object.fromEntries(
 );
 
 const rankToScore = (rank: string | null): number => {
-    if (!rank) return 0;
-    return RANK_TO_SCORE[rank] || 0;
+    if (!rank) return 1; // Treat null rank as 12th place for score calculation
+    return RANK_TO_SCORE[rank] || 1;
 };
 
 const sumRanks = (arr: (string|null)[]) => arr.reduce((acc: number, rank) => acc + rankToScore(rank), 0);

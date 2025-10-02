@@ -34,8 +34,8 @@ const RANK_TO_SCORE: { [key: string]: number } = {
 };
 
 const rankToScore = (rank: string | null): number => {
-    if (!rank) return 0;
-    return RANK_TO_SCORE[rank] || 0;
+    if (!rank) return 1; // Treat null rank as 12th place for score calculation
+    return RANK_TO_SCORE[rank] || 1;
 };
 
 const getRankClass = (rank: string | null) => {
@@ -156,7 +156,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
             useCORS: true,
             allowTaint: true,
             scrollX: 0,
-            scrollY: 0,
+            scrollY: -window.scrollY,
             windowWidth: clonedElement.scrollWidth,
             windowHeight: clonedElement.scrollHeight,
         });
@@ -236,6 +236,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
 
   return (
     <ScrollArea className="h-[70vh] w-full" ref={printRef}>
+        <div className="bg-card">
       <Table className='border-collapse border-spacing-0 bg-card'>
         <TableHeader className='sticky top-0 bg-background z-10'>
           <TableRow>
@@ -285,20 +286,20 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                   <TableRow key={pIndex}>
                     <TableCell className="font-medium sticky left-0 bg-card/95">{player.playerName}</TableCell>
                     {player.ranks.slice(0,4).map((rank, sIndex) => (
-                        <TableCell key={sIndex} className={cn("text-center font-mono", getRankClass(rank))}>
-                          {rank ?? '-'}
+                        <TableCell key={sIndex} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
+                          {rank ?? '12'}
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[3] !== null ? player.gp1 : '-'}</TableCell>
                     {player.ranks.slice(4,8).map((rank, sIndex) => (
-                        <TableCell key={sIndex+4} className={cn("text-center font-mono", getRankClass(rank))}>
-                            {rank ?? '-'}
+                        <TableCell key={sIndex+4} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
+                            {rank ?? '12'}
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[7] !== null ? player.gp2 : '-'}</TableCell>
                      {player.ranks.slice(8,12).map((rank, sIndex) => (
-                        <TableCell key={sIndex+8} className={cn("text-center font-mono", getRankClass(rank))}>
-                            {rank ?? '-'}
+                        <TableCell key={sIndex+8} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
+                            {rank ?? '12'}
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[11] !== null ? player.gp3 : '-'}</TableCell>
@@ -310,7 +311,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                 
                 {tIndex === 0 && Object.keys(groupedData).length > 1 && (
                 <React.Fragment>
-                    <TableRow className="h-2 bg-muted/50 hover:bg-muted/50">
+                    <TableRow className="h-2 bg-muted/20 hover:bg-muted/20">
                       <TableCell colSpan={numColumns}></TableCell>
                     </TableRow>
                     <TableRow className='font-bold border-y'>
@@ -348,7 +349,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                         <TableCell className="text-center font-mono">{teamStats.red.total}</TableCell>
                     </TableRow>
                     )}
-                    <TableRow className="h-2 bg-muted/50 hover:bg-muted/50">
+                    <TableRow className="h-2 bg-muted/20 hover:bg-muted/20">
                       <TableCell colSpan={numColumns}></TableCell>
                     </TableRow>
                 </React.Fragment>
@@ -364,6 +365,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
           )}
         </TableBody>
       </Table>
+      </div>
     </ScrollArea>
   );
 });
