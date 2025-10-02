@@ -168,47 +168,50 @@ export default function ScoreParser() {
     return '';
   };
   
-    const handleAbsences = (
-        raceData: ValidatedRacePlayerResult[],
-        masterPlayerList: string[]
-    ): ValidatedRacePlayerResult[] => {
-        const presentPlayerNames = raceData.map(p => getMasterPlayerName(p.playerName, masterPlayerList));
-        const absentPlayerNames = masterPlayerList.filter(name => !presentPlayerNames.includes(name));
-        const missingPlayerCount = absentPlayerNames.length;
+  const handleAbsences = (
+      raceData: ValidatedRacePlayerResult[],
+      masterPlayerList: string[]
+  ): ValidatedRacePlayerResult[] => {
+      if (masterPlayerList.length !== 12) {
+          return raceData; // Only apply logic when a full 12-player roster is expected
+      }
+      
+      const presentPlayerNames = new Set(raceData.map(p => getMasterPlayerName(p.playerName, masterPlayerList)));
+      const absentPlayerCount = 12 - presentPlayerNames.size;
 
-        if (missingPlayerCount === 0 || masterPlayerList.length < 12) {
-            return raceData;
-        }
+      if (absentPlayerCount === 0) {
+          return raceData;
+      }
+      
+      const bonusPoints = absentPlayerCount > 0 ? absentPlayerCount - 1 : 0;
 
-        const bonusPoints = missingPlayerCount - 1;
+      const adjustedRaceData = raceData.map(player => {
+          let adjustedRaceScore = player.raceScore || 0;
+          if (player.rank === '1st') {
+              adjustedRaceScore += 3 + bonusPoints;
+          } else if (player.rank === '2nd') {
+              adjustedRaceScore += 2 + bonusPoints;
+          } else {
+              adjustedRaceScore += 1 + bonusPoints;
+          }
+          return { ...player, raceScore: adjustedRaceScore };
+      });
+      
+      const absentPlayerNames = masterPlayerList.filter(name => !presentPlayerNames.has(name));
 
-        // Adjust scores for present players
-        const adjustedRaceData = raceData.map(player => {
-            let raceScore = player.raceScore || 0;
-            if (player.rank === '1st') {
-                raceScore += 3 + bonusPoints;
-            } else if (player.rank === '2nd') {
-                raceScore += 2 + bonusPoints;
-            } else {
-                raceScore += 1 + bonusPoints;
-            }
-            return { ...player, raceScore };
-        });
-
-        // Add absent players with +1 score for the race
-        for (const absentPlayerName of absentPlayerNames) {
-            adjustedRaceData.push({
-                playerName: absentPlayerName,
-                team: 'Unassigned', // Will be filled in later
-                score: 0, // This will be recalculated
-                rank: 'N/A',
-                isValid: true,
-                raceScore: 1, // They get 1 point for not playing
-            });
-        }
-        
-        return adjustedRaceData;
-    };
+      for (const absentPlayerName of absentPlayerNames) {
+          adjustedRaceData.push({
+              playerName: absentPlayerName,
+              team: 'Unassigned', // Will be filled in later
+              score: 0, // This will be recalculated
+              rank: 'N/A',
+              isValid: true,
+              raceScore: 1, // They get 1 point for not playing
+          });
+      }
+      
+      return adjustedRaceData;
+  };
 
 
   const updateMergedDataWithRace = useCallback((raceResults: (ValidatedRacePlayerResult)[], raceNumber: number, masterPlayerList: string[]) => {
@@ -299,6 +302,7 @@ export default function ScoreParser() {
  'Sipgb', 'Elgraco', 'Vick', 'Oniix', 'Wolfeet', 'Morioh',
  'Jecht', 'Braska', 'Cid', 'Wedge', 'Biggs', 'Seymour'
     ];
+    const redTeamPlayers = demoPlayers.slice(6);
 
     const blueTeamName = 'old legends (BLUE)';
     const redTeamName = 'DS (RED)';
@@ -320,53 +324,40 @@ export default function ScoreParser() {
     const allRanks = Array.from({ length: 12 }, (_, i) => getRankString(i + 1));
     const newShockLog: ShockLog = {};
 
+    // --- Start of DC simulation ---
+    const dcRace = Math.floor(Math.random() * 12); // race index 0-11
+    const dcPlayerName = redTeamPlayers[Math.floor(Math.random() * redTeamPlayers.length)];
+    const ranksForDcRace = allRanks.slice(0, 11);
+    // --- End of DC simulation ---
+
     for (let i = 0; i < 12; i++) { // For each race
-        const shuffledRanks = [...allRanks].sort(() => Math.random() - 0.5);
+        let ranksToAssign = [...allRanks];
+        let playersInRace = [...demoPlayers];
+
+        if (i === dcRace) {
+            ranksToAssign = [...ranksForDcRace];
+            playersInRace = demoPlayers.filter(p => p !== dcPlayerName);
+        }
+        
+        ranksToAssign.sort(() => Math.random() - 0.5);
        
-        // Assign ranks to players for the current race
-        demoPlayers.forEach((name, pIndex) => {
-            newMergedData[name].ranks[i] = shuffledRanks[pIndex];
+        playersInRace.forEach((name, pIndex) => {
+            newMergedData[name].ranks[i] = ranksToAssign[pIndex];
         });
 
-        // Assign one shock per race randomly to a team
-        if (Math.random() < 0.8) { // 80% chance for a race to have a shock
+        if (Math.random() < 0.8) {
           const shockedTeam = Math.random() < 0.5 ? blueTeamName : redTeamName;
           newShockLog[i + 1] = shockedTeam;
         }
     }
    
-    // Set dummy extracted data for previewing shocks and individual race data
-    const newExtractedData: ExtractedData[] = [];
-    for (let i = 0; i < 12; i++) {
-        newExtractedData.push({
-            imageUrl: '',
-            filename: `Demo Race ${i + 1}`,
-            raceNumber: i + 1,
-            data: demoPlayers.map(p => {
-                const raceScore = rankToScore(newMergedData[p].ranks[i]);
-                const totalScore = newMergedData[p].ranks.slice(0, i + 1).reduce((acc, rank) => acc + rankToScore(rank), 0);
-
-                return {
-                    playerName: p,
-                    team: newMergedData[p].team,
-                    score: totalScore,
-                    rank: newMergedData[p].ranks[i]!,
-                    isValid: true,
-                    raceScore: raceScore,
-                }
-            })
-        });
-    }
-
     let finalData = recalculateAllTotals(newMergedData);
 
-    // Ensure Vick is 8th
     const sortedPlayers = Object.values(finalData).sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
     const vickPlayer = sortedPlayers.find(p => p.playerName === 'Vick');
     const eighthPlayer = sortedPlayers[7];
 
     if (vickPlayer && eighthPlayer && vickPlayer.playerName !== eighthPlayer.playerName) {
-        // Swap total and rank between Vick and the 8th player
         const vickOriginalTotal = vickPlayer.total;
         const vickOriginalRank = vickPlayer.rank;
 
@@ -376,9 +367,35 @@ export default function ScoreParser() {
         eighthPlayer.total = vickOriginalTotal;
         eighthPlayer.rank = vickOriginalRank;
 
-        // Re-assign to finalData object
         finalData[vickPlayer.playerName] = vickPlayer;
         finalData[eighthPlayer.playerName] = eighthPlayer;
+    }
+
+    const newExtractedData: ExtractedData[] = [];
+    for (let i = 0; i < 12; i++) {
+        let playersForExtracted = [...demoPlayers];
+        if (i === dcRace) {
+            playersForExtracted = demoPlayers.filter(p => p !== dcPlayerName);
+        }
+        
+        newExtractedData.push({
+            imageUrl: '',
+            filename: `Demo Race ${i + 1}`,
+            raceNumber: i + 1,
+            data: playersForExtracted.map(p => {
+                const raceScore = rankToScore(finalData[p].ranks[i]);
+                const totalScore = finalData[p].ranks.slice(0, i + 1).reduce((acc, rank) => acc + rankToScore(rank), 0);
+
+                return {
+                    playerName: p,
+                    team: finalData[p].team,
+                    score: totalScore,
+                    rank: finalData[p].ranks[i]!,
+                    isValid: true,
+                    raceScore: raceScore,
+                }
+            })
+        });
     }
    
     setExtractedData(newExtractedData);
@@ -389,7 +406,7 @@ export default function ScoreParser() {
         setIsLoading(false);
         toast({
             title: "Demo Data Generated",
-            description: "12 races with 12 players have been created for you.",
+            description: `12 races with a DC on Race ${dcRace + 1} for player ${dcPlayerName}.`,
             className: 'bg-accent text-accent-foreground'
         });
     }, 500);
@@ -426,7 +443,6 @@ export default function ScoreParser() {
     
     let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(mergedData);
     
-    // Create a deep copy for race-by-race calculations to avoid state timing issues
     const tempMergedDataForCalc: MergedRaceData = JSON.parse(JSON.stringify(mergedData));
 
 
@@ -448,7 +464,6 @@ export default function ScoreParser() {
 
         const aiResult = await extractRaceDataFromImage(input);
         
-        // Calculate race score and rank from total score
         let raceDataWithScores = aiResult.map(player => {
             if (!player.isValid || !player.playerName) {
               return { ...player, rank: '?th', raceScore: 0, score: player.score ?? 0 };
@@ -468,12 +483,10 @@ export default function ScoreParser() {
             };
         });
         
-        // Handle absences and adjust scores
         if (masterPlayerList.length === 12) {
           raceDataWithScores = handleAbsences(raceDataWithScores, masterPlayerList);
         }
 
-        // Recalculate total score after adjustments
         const finalRaceData = raceDataWithScores.map(player => {
             if (!player.isValid) return player;
             const masterName = getMasterPlayerName(player.playerName, masterPlayerList);
@@ -496,10 +509,8 @@ export default function ScoreParser() {
         }
 
         if(finalRaceData.some(d => d.isValid)) {
-          // This call updates the main state used by previews
           updateMergedDataWithRace(finalRaceData, raceForThisImage, masterPlayerList);
 
-          // Manually update a temporary state for the *next* iteration's calculation
           finalRaceData.forEach(p => {
               if (p.isValid && p.playerName) {
                   const masterName = getMasterPlayerName(p.playerName, masterPlayerList);
@@ -516,7 +527,6 @@ export default function ScoreParser() {
                         isValid: true 
                       };
                   }
-                  // Store the *cumulative* score in the temp object for the next race calculation
                   tempMergedDataForCalc[masterName].total = p.score;
                   if (raceForThisImage >= 1 && raceForThisImage <= 12) {
                     tempMergedDataForCalc[masterName].ranks[raceForThisImage - 1] = p.rank;
@@ -917,5 +927,7 @@ export default function ScoreParser() {
     </div>
   );
 }
+
+    
 
     
