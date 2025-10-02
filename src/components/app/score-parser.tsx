@@ -167,6 +167,49 @@ export default function ScoreParser() {
     // If list is full and no match, return a placeholder or empty to be filtered.
     return '';
   };
+  
+    const handleAbsences = (
+        raceData: ValidatedRacePlayerResult[],
+        masterPlayerList: string[]
+    ): ValidatedRacePlayerResult[] => {
+        const presentPlayerNames = raceData.map(p => getMasterPlayerName(p.playerName, masterPlayerList));
+        const absentPlayerNames = masterPlayerList.filter(name => !presentPlayerNames.includes(name));
+        const missingPlayerCount = absentPlayerNames.length;
+
+        if (missingPlayerCount === 0 || masterPlayerList.length < 12) {
+            return raceData;
+        }
+
+        const bonusPoints = missingPlayerCount - 1;
+
+        // Adjust scores for present players
+        const adjustedRaceData = raceData.map(player => {
+            let raceScore = player.raceScore || 0;
+            if (player.rank === '1st') {
+                raceScore += 3 + bonusPoints;
+            } else if (player.rank === '2nd') {
+                raceScore += 2 + bonusPoints;
+            } else {
+                raceScore += 1 + bonusPoints;
+            }
+            return { ...player, raceScore };
+        });
+
+        // Add absent players with +1 score for the race
+        for (const absentPlayerName of absentPlayerNames) {
+            adjustedRaceData.push({
+                playerName: absentPlayerName,
+                team: 'Unassigned', // Will be filled in later
+                score: 0, // This will be recalculated
+                rank: 'N/A',
+                isValid: true,
+                raceScore: 1, // They get 1 point for not playing
+            });
+        }
+        
+        return adjustedRaceData;
+    };
+
 
   const updateMergedDataWithRace = useCallback((raceResults: (ValidatedRacePlayerResult)[], raceNumber: number, masterPlayerList: string[]) => {
       setMergedData(prevData => {
@@ -406,7 +449,7 @@ export default function ScoreParser() {
         const aiResult = await extractRaceDataFromImage(input);
         
         // Calculate race score and rank from total score
-        const finalRaceData = aiResult.map(player => {
+        let raceDataWithScores = aiResult.map(player => {
             if (!player.isValid || !player.playerName) {
               return { ...player, rank: '?th', raceScore: 0, score: player.score ?? 0 };
             }
@@ -422,6 +465,22 @@ export default function ScoreParser() {
               score: currentTotal,
               raceScore: raceScore,
               rank: rank, 
+            };
+        });
+        
+        // Handle absences and adjust scores
+        if (masterPlayerList.length === 12) {
+          raceDataWithScores = handleAbsences(raceDataWithScores, masterPlayerList);
+        }
+
+        // Recalculate total score after adjustments
+        const finalRaceData = raceDataWithScores.map(player => {
+            if (!player.isValid) return player;
+            const masterName = getMasterPlayerName(player.playerName, masterPlayerList);
+            const prevTotal = raceForThisImage > 1 ? (tempMergedDataForCalc[masterName]?.total ?? 0) : 0;
+            return {
+                ...player,
+                score: prevTotal + (player.raceScore || 0),
             };
         });
 
@@ -858,3 +917,5 @@ export default function ScoreParser() {
     </div>
   );
 }
+
+    
