@@ -287,19 +287,19 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     <TableCell className="font-medium sticky left-0 bg-card/95">{player.playerName}</TableCell>
                     {player.ranks.slice(0,4).map((rank, sIndex) => (
                         <TableCell key={sIndex} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
-                          {rank ?? '12'}
+                          {rank ?? '12th'}
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[3] !== null ? player.gp1 : '-'}</TableCell>
                     {player.ranks.slice(4,8).map((rank, sIndex) => (
                         <TableCell key={sIndex+4} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
-                            {rank ?? '12'}
+                            {rank ?? '12th'}
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[7] !== null ? player.gp2 : '-'}</TableCell>
                      {player.ranks.slice(8,12).map((rank, sIndex) => (
                         <TableCell key={sIndex+8} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
-                            {rank ?? '12'}
+                            {rank ?? '12th'}
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[11] !== null ? player.gp3 : '-'}</TableCell>
