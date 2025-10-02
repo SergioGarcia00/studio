@@ -35,6 +35,8 @@ const prompt = ai.definePrompt({
   - Score for this race (this is the TOTAL score up to this race, not the delta)
   - Rank in this race (e.g., "1st", "5th")
   
+  When extracting player names, normalize them to use only standard English alphabet characters and numbers. Remove any special characters, accents, or symbols.
+
   This image is for Race Number: {{{raceNumber}}}
   
   {{#if playerNames}}
