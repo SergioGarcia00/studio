@@ -880,7 +880,7 @@ export default function ScoreParser() {
                     </div>
                     <div className='flex items-center gap-2 flex-wrap'>
                       <Button asChild variant="outline" disabled={allPlayers.length === 0}>
-                        <Link href="/preview" target="_blank">
+                        <Link href="/preview">
                           <TableIcon className="mr-2 h-4 w-4" />
                           Preview Results
                         </Link>
