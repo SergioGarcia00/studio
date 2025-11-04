@@ -734,15 +734,18 @@ export default function ScoreParser() {
     });
   }
 
-  const handleRaceNameChange = (originalIndex: number, newRaceName: string) => {
-    setExtractedData(currentData => {
-        if (!Array.isArray(currentData)) return [];
-        const newData = [...currentData]; // Create a shallow copy
-        const itemToUpdate = { ...newData[originalIndex] }; // Create a shallow copy of the object
-        itemToUpdate.raceName = newRaceName;
-        newData[originalIndex] = itemToUpdate;
-        return newData;
+  const handleRaceNameChange = (raceNumberToUpdate: number, newRaceName: string) => {
+    const currentData = useResultsStore.getState().extractedData;
+    if (!Array.isArray(currentData)) return;
+
+    const newData = currentData.map(item => {
+        if (item.raceNumber === raceNumberToUpdate) {
+            return { ...item, raceName: newRaceName };
+        }
+        return item;
     });
+
+    setExtractedData(newData);
   };
 
   const handleUpdateOrder = () => {
@@ -977,7 +980,7 @@ export default function ScoreParser() {
                                 <Label>Race Name</Label>
                                 <Select
                                   value={result.raceName}
-                                  onValueChange={(value) => handleRaceNameChange(index, value)}
+                                  onValueChange={(value) => handleRaceNameChange(result.raceNumber, value)}
                                 >
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select a race track..." />
