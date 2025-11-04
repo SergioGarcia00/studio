@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -871,7 +872,7 @@ export default function ScoreParser() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            {extractedData.length > 0 && !isLoading && (
+            {Array.isArray(extractedData) && extractedData.length > 0 && !isLoading && (
               <Card className="shadow-lg">
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -900,137 +901,139 @@ export default function ScoreParser() {
                       Update Order
                     </Button>
                   </div>
-                  <Accordion type="multiple" className="w-full" defaultValue={extractedData.map((_, i) => `item-${i}`)}>
-                    {extractedData.map((result, index) => (
-                      <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
-                        <AccordionTrigger>
-                          <div className='flex items-center justify-between w-full pr-4'>
-                            <div className='flex items-center gap-4'>
-                              {result.imageUrl ? (
-                                <div className="relative aspect-video w-24">
-                                  <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
-                                </div>
-                              ) : (
-                                <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
-                                  <TestTube2 className="h-8 w-8 text-muted-foreground" />
-                                </div>
-                              )}
-                              <div className='text-left'>
-                                <p className='font-semibold'>
-                                  {`Race ${result.raceNumber}${result.raceName ? `: ${result.raceName}` : ''}`}
-                                </p>
-                                <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
-                              </div>
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className='flex justify-end mb-2'>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadSingleRaceCsv(result);
-                              }}
-                              aria-label="Download CSV for this race"
-                            >
-                              <Download className='h-4 w-4 mr-2' />
-                              Download Race CSV
-                            </Button>
-                          </div>
-                          <div className='overflow-x-auto max-h-[60vh]'>
-                            <Table>
-                              <TableHeader className='sticky top-0 bg-card'>
-                                <TableRow>
-                                  <TableHead>Player Name</TableHead>
-                                  <TableHead>Team</TableHead>
-                                  <TableHead className="text-right">Total Score</TableHead>
-                                  <TableHead className='text-right'>Race Score</TableHead>
-                                  <TableHead>Rank</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {result.data.length > 0 ? result.data.map((player, pIndex) => (
-                                  <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
-                                    <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
-                                    <TableCell>{player.team || 'N/A'}</TableCell>
-                                    <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
-                                    <TableCell className="text-right font-mono">{player.raceScore ?? 'N/A'}</TableCell>
-                                    <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
-                                  </TableRow>
-                                )) : (
-                                  <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
-                                  </TableRow>
-                                )}
-                              </TableBody>
-                            </Table>
-                          </div>
-                          <div className='space-y-6 mt-4 p-4 border rounded-lg'>
-                            <div className="grid gap-2">
-                              <Label>Race Name</Label>
-                              <Select
-                                value={result.raceName}
-                                onValueChange={(value) => handleRaceNameChange(index, value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select a race track..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Object.entries(RACE_TRACKS).map(([abbr, fullName]) => (
-                                    <SelectItem key={abbr} value={fullName}>{fullName}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="grid gap-2">
-                              <Label>Team Pick</Label>
+                  {Array.isArray(extractedData) && (
+                    <Accordion type="multiple" className="w-full" defaultValue={extractedData.map((_, i) => `item-${i}`)}>
+                      {extractedData.map((result, index) => (
+                        <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
+                          <AccordionTrigger>
+                            <div className='flex items-center justify-between w-full pr-4'>
                               <div className='flex items-center gap-4'>
-                                <Circle className="h-5 w-5 text-blue-500 fill-blue-500" />
-                                <Slider
-                                  value={[racePicks[result.raceNumber] === 'blue' ? 0 : racePicks[result.raceNumber] === 'none' ? 1 : 2]}
-                                  onValueChange={([val]) => handleTeamPickChange(result.raceNumber, val)}
-                                  min={0}
-                                  max={2}
-                                  step={1}
-                                  className='flex-1'
-                                />
-                                <Circle className="h-5 w-5 text-red-500 fill-red-500" />
+                                {result.imageUrl ? (
+                                  <div className="relative aspect-video w-24">
+                                    <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
+                                  </div>
+                                ) : (
+                                  <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
+                                    <TestTube2 className="h-8 w-8 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className='text-left'>
+                                  <p className='font-semibold'>
+                                    {`Race ${result.raceNumber}${result.raceName ? `: ${result.raceName}` : ''}`}
+                                  </p>
+                                  <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
+                                </div>
                               </div>
                             </div>
-
-                            <div className='flex items-center justify-end gap-2 border-t pt-4'>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <Zap className="mr-2 h-4 w-4" />
-                                    {shockLog[result.raceNumber] ? `Shock: ${shockLog[result.raceNumber]}` : 'Mark Shock'}
-                                    <ChevronDown className="ml-2 h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleToggleShock(result.raceNumber, shockLog[result.raceNumber])}>
-                                    Remove Shock
-                                  </DropdownMenuItem>
-                                  {allPlayers.map(p => (
-                                    <DropdownMenuItem key={p.playerName} onClick={() => handleToggleShock(result.raceNumber, p.playerName)}>
-                                      {p.playerName}
-                                    </DropdownMenuItem>
-                                  ))}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className='flex justify-end mb-2'>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadSingleRaceCsv(result);
+                                }}
+                                aria-label="Download CSV for this race"
+                              >
+                                <Download className='h-4 w-4 mr-2' />
+                                Download Race CSV
+                              </Button>
                             </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
+                            <div className='overflow-x-auto max-h-[60vh]'>
+                              <Table>
+                                <TableHeader className='sticky top-0 bg-card'>
+                                  <TableRow>
+                                    <TableHead>Player Name</TableHead>
+                                    <TableHead>Team</TableHead>
+                                    <TableHead className="text-right">Total Score</TableHead>
+                                    <TableHead className='text-right'>Race Score</TableHead>
+                                    <TableHead>Rank</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {result.data.length > 0 ? result.data.map((player, pIndex) => (
+                                    <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
+                                      <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
+                                      <TableCell>{player.team || 'N/A'}</TableCell>
+                                      <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
+                                      <TableCell className="text-right font-mono">{player.raceScore ?? 'N/A'}</TableCell>
+                                      <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
+                                    </TableRow>
+                                  )) : (
+                                    <TableRow>
+                                      <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                    </TableRow>
+                                  )}
+                                </TableBody>
+                              </Table>
+                            </div>
+                            <div className='space-y-6 mt-4 p-4 border rounded-lg'>
+                              <div className="grid gap-2">
+                                <Label>Race Name</Label>
+                                <Select
+                                  value={result.raceName}
+                                  onValueChange={(value) => handleRaceNameChange(index, value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select a race track..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Object.entries(RACE_TRACKS).map(([abbr, fullName]) => (
+                                      <SelectItem key={abbr} value={fullName}>{fullName}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="grid gap-2">
+                                <Label>Team Pick</Label>
+                                <div className='flex items-center gap-4'>
+                                  <Circle className="h-5 w-5 text-blue-500 fill-blue-500" />
+                                  <Slider
+                                    value={[racePicks[result.raceNumber] === 'blue' ? 0 : racePicks[result.raceNumber] === 'none' ? 1 : 2]}
+                                    onValueChange={([val]) => handleTeamPickChange(result.raceNumber, val)}
+                                    min={0}
+                                    max={2}
+                                    step={1}
+                                    className='flex-1'
+                                  />
+                                  <Circle className="h-5 w-5 text-red-500 fill-red-500" />
+                                </div>
+                              </div>
+
+                              <div className='flex items-center justify-end gap-2 border-t pt-4'>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      <Zap className="mr-2 h-4 w-4" />
+                                      {shockLog[result.raceNumber] ? `Shock: ${shockLog[result.raceNumber]}` : 'Mark Shock'}
+                                      <ChevronDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleToggleShock(result.raceNumber, shockLog[result.raceNumber])}>
+                                      Remove Shock
+                                    </DropdownMenuItem>
+                                    {allPlayers.map(p => (
+                                      <DropdownMenuItem key={p.playerName} onClick={() => handleToggleShock(result.raceNumber, p.playerName)}>
+                                        {p.playerName}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
                 </CardContent>
               </Card>
             )}
-            {!isLoading && extractedData.length === 0 && (
+            {!isLoading && (!Array.isArray(extractedData) || extractedData.length === 0) && (
               <Card className="flex flex-col items-center justify-center h-full min-h-[400px] border-dashed shadow-inner">
                 <CardContent className="text-center p-6">
                   {images.length > 0 ?
