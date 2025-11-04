@@ -8,6 +8,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
+
+const getRankClass = (rank: string | null) => {
+    if (!rank) return '';
+    const rankNum = parseInt(rank.replace(/\D/g, ''), 10);
+    if (rankNum === 1) return 'bg-yellow-400/80 text-black font-bold rounded';
+    if (rankNum === 2) return 'bg-slate-300/80 text-black font-bold rounded';
+    if (rankNum === 3) return 'bg-orange-400/80 text-black font-bold rounded';
+    if (rankNum >= 4 && rankNum <=6) return 'bg-blue-400/30 rounded';
+    if (rankNum >= 7 && rankNum <=9) return 'bg-green-400/30 rounded';
+    if (rankNum >= 10 && rankNum <=12) return 'bg-gray-400/30 rounded';
+
+    return '';
+};
+
+
 const FinalSummary = () => {
     const { mergedData } = useResultsStore();
     const data = Object.values(mergedData) as Player[];
@@ -114,7 +129,7 @@ const FinalSummary = () => {
                                         <TableRow key={player.playerName} className="border-gray-800">
                                             <TableCell className="font-medium">{player.playerName}</TableCell>
                                             <TableCell className="text-right font-mono text-sm">{player.total}</TableCell>
-                                            <TableCell className="text-right font-semibold text-sm">{player.rank}</TableCell>
+                                            <TableCell className={cn("text-right font-semibold text-sm text-center", getRankClass(player.rank))}>{player.rank}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -137,7 +152,7 @@ const FinalSummary = () => {
                                         <TableRow key={player.playerName} className="border-gray-800">
                                             <TableCell className="font-medium">{player.playerName}</TableCell>
                                             <TableCell className="text-right font-mono text-sm">{player.total}</TableCell>
-                                            <TableCell className="text-right font-semibold text-sm">{player.rank}</TableCell>
+                                            <TableCell className={cn("text-right font-semibold text-sm text-center", getRankClass(player.rank))}>{player.rank}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
