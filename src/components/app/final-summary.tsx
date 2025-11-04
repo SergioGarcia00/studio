@@ -103,8 +103,8 @@ const FinalSummary = () => {
                         </p>
                     </div>
                     <div className="flex flex-col items-center">
-                        <h2 className="text-2xl font-semibold text-muted-foreground">{losingTeam?.name.split(' (')[0].trim() || 'Team 2'}</h2>
-                        <p className="text-6xl font-bold text-muted-foreground">{losingScore}</p>
+                        <h2 className="text-2xl font-semibold">{losingTeam?.name.split(' (')[0].trim() || 'Team 2'}</h2>
+                        <p className="text-6xl font-bold">{losingScore}</p>
                     </div>
                 </div>
 
@@ -112,7 +112,6 @@ const FinalSummary = () => {
                 <div className="grid md:grid-cols-2 gap-6">
                     {winningTeam && (
                         <div>
-                            <h3 className="text-xl font-semibold mb-2 text-center">{winningTeam.name.split(' (')[0].trim()}</h3>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="border-border">
@@ -140,7 +139,6 @@ const FinalSummary = () => {
                     )}
                     {losingTeam && (
                          <div>
-                            <h3 className="text-xl font-semibold mb-2 text-muted-foreground text-center">{losingTeam.name.split(' (')[0].trim()}</h3>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="border-border">
