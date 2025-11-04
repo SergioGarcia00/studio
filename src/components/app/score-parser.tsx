@@ -687,20 +687,18 @@ const handleRemoveImage = (indexToRemove: number) => {
         
         let raceDataWithScores = aiResult.map(player => {
             if (!player.isValid || !player.playerName) {
-              return { ...player, rank: '?th', raceScore: 0, score: player.score ?? 0 };
+              return { ...player, rank: player.rank || '?th', raceScore: 0, score: player.score ?? 0 };
             }
-
+            
+            const raceScore = rankToScore(player.rank);
             const masterName = getMasterPlayerName(player.playerName, masterPlayerList);
             const prevTotal = raceForThisImage > 1 ? (tempMergedDataForThisRace[masterName]?.total ?? 0) : 0;
-            const currentTotal = player.score;
-            const raceScore = currentTotal - prevTotal;
-            const rank = SCORE_TO_RANK[raceScore] || '?th';
             
             return {
               ...player,
-              score: currentTotal,
-              raceScore: raceScore,
-              rank: rank, 
+              score: prevTotal + raceScore, // This is the new total score
+              raceScore: raceScore, // This is the score for this race only
+              rank: player.rank,
             };
         });
         
@@ -788,10 +786,15 @@ const handleRemoveImage = (indexToRemove: number) => {
         if (!existingSignatures.has(signature)) {
             uniqueResults.push(result);
             existingSignatures.add(signature);
+        } else {
+             toast({
+                title: 'Duplicate Race Found',
+                description: `Race data from '${result.filename}' seems to be a duplicate and was ignored.`,
+            });
         }
     }
     
-    const duplicatesFound = batchExtractedResults.length - uniqueResults.length;
+    const duplicatesFound = batchExtractedResults.filter(r => r.data.length > 0).length - uniqueResults.filter(r => r.data.length > 0).length;
     if (duplicatesFound > 0) {
         toast({
             title: 'Duplicate Races Found',

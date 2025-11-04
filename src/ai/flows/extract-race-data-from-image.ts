@@ -37,6 +37,8 @@ const prompt = ai.definePrompt({
   
   When extracting player names, normalize them to use only standard English alphabet characters and numbers. Remove any special characters, accents, or symbols.
 
+  The rank is the most important field. Prioritize its accuracy.
+
   This image is for Race Number: {{{raceNumber}}}
   
   {{#if playerNames}}
@@ -96,11 +98,9 @@ const extractRaceDataFromImageFlow = ai.defineFlow(
     // Post-process the output to validate entries.
     const validatedData = response.output.map(entry => ({
       ...entry,
-      isValid: !!entry.playerName && entry.playerName.trim() !== '',
+      isValid: !!entry.playerName && entry.playerName.trim() !== '' && !!entry.rank && entry.rank.trim() !== '',
     }));
 
     return validatedData;
   }
 );
-
-    
