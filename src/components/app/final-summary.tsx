@@ -75,6 +75,9 @@ const FinalSummary = () => {
     const losingScore = Math.min(teamAScore, teamBScore);
     const scoreDifference = winningScore - losingScore;
 
+    const winningTeamColor = winningTeam?.name.toLowerCase().includes('blue') ? 'text-blue-400' : 'text-red-500';
+    const losingTeamColor = losingTeam?.name.toLowerCase().includes('blue') ? 'text-blue-400' : 'text-red-500';
+
     const today = format(new Date(), 'MMMM d, yyyy');
 
     const downloadAsPng = async () => {
@@ -160,8 +163,8 @@ const FinalSummary = () => {
                 {/* Score Summary */}
                 <div className="flex justify-around items-center mb-8 text-center">
                     <div className="flex flex-col items-center">
-                        <h2 className="text-2xl font-semibold">{winningTeam?.name.split(' (')[0].trim() || 'Team 1'}</h2>
-                        <p className="text-6xl font-bold">{winningScore}</p>
+                        <h2 className={cn("text-2xl font-semibold", winningTeamColor)}>{winningTeam?.name.split(' (')[0].trim() || 'Team 1'}</h2>
+                        <p className={cn("text-6xl font-bold", winningTeamColor)}>{winningScore}</p>
                     </div>
                     <div className="flex flex-col items-center">
                          <p className="text-3xl font-light text-muted-foreground self-center mt-8">
@@ -169,8 +172,8 @@ const FinalSummary = () => {
                         </p>
                     </div>
                     <div className="flex flex-col items-center">
-                        <h2 className="text-2xl font-semibold">{losingTeam?.name.split(' (')[0].trim() || 'Team 2'}</h2>
-                        <p className="text-6xl font-bold">{losingScore}</p>
+                        <h2 className={cn("text-2xl font-semibold", losingTeamColor)}>{losingTeam?.name.split(' (')[0].trim() || 'Team 2'}</h2>
+                        <p className={cn("text-6xl font-bold", losingTeamColor)}>{losingScore}</p>
                     </div>
                 </div>
 
