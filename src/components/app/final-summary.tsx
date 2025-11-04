@@ -33,9 +33,9 @@ const FinalSummary = () => {
         
         const teamOrder = Object.keys(groups).sort((a, b) => {
             const aIsBlue = a.toLowerCase().includes('blue');
-            const bIsBlue = b.toLowerCase().includes('red');
-            if (aIsBlue && !bIsBlue) return -1;
-            if (!aIsBlue && bIsBlue) return 1;
+            const bIsRed = b.toLowerCase().includes('red');
+            if (aIsBlue && bIsRed) return -1;
+            if (bIsBlue && !aIsBlue) return 1;
             return 0;
         });
     
@@ -61,7 +61,7 @@ const FinalSummary = () => {
     }
     
     return (
-        <div className="bg-gray-900 p-8 rounded-lg max-w-4xl mx-auto flex flex-col items-center">
+        <div className="bg-gray-900 p-8 rounded-lg max-w-6xl mx-auto flex flex-col items-center">
             {/* Header */}
             <div className="w-full flex justify-between items-center text-gray-400 mb-8">
                 <div className="flex items-center gap-2">
@@ -74,44 +74,46 @@ const FinalSummary = () => {
             </div>
 
             {/* Main Content */}
-            <div className="w-full grid grid-cols-3 items-center gap-8">
+            <div className="w-full grid grid-cols-3 items-center justify-items-center gap-8 relative">
                 {/* Team A */}
-                <div className="flex flex-col items-center justify-center text-center">
+                <div className="flex flex-col items-center justify-center text-center justify-self-end">
                     <h2 className="text-8xl font-bold text-blue-400">{teamA?.name || 'Team 1'}</h2>
                     <p className="text-9xl font-thin text-blue-300 mt-4">{teamAScore}</p>
                 </div>
 
-                {/* Player List */}
-                <div className="flex flex-col text-2xl">
-                    {teamA?.players.map((player, index) => (
-                        <div key={index} className="flex justify-between items-baseline py-1 text-blue-400 gap-4">
-                            <span className="font-medium w-40 truncate text-left">{player.playerName}</span>
-                            <span className="font-mono w-16 text-right">{player.total}</span>
-                            <span className="text-xl text-gray-400 w-16 text-right">{player.rank}</span>
-                        </div>
-                    ))}
-                    <div className='h-8'></div>
-                     {teamB?.players.map((player, index) => (
-                        <div key={index} className="flex justify-between items-baseline py-1 text-gray-300 gap-4">
-                            <span className="font-medium w-40 truncate text-left">{player.playerName}</span>
-                            <span className="font-mono w-16 text-right">{player.total}</span>
-                            <span className="text-xl text-gray-400 w-16 text-right">{player.rank}</span>
-                        </div>
-                    ))}
+                {/* Player List & Difference */}
+                <div className="flex flex-col items-center">
+                    <div className="flex flex-col text-2xl">
+                        {teamA?.players.map((player, index) => (
+                            <div key={index} className="flex justify-between items-baseline py-1 text-blue-400 gap-4">
+                                <span className="font-medium w-40 truncate text-left">{player.playerName}</span>
+                                <span className="font-mono w-16 text-right">{player.total}</span>
+                                <span className="text-xl text-gray-400 w-16 text-right">{player.rank}</span>
+                            </div>
+                        ))}
+                        <div className='h-8'></div>
+                         {teamB?.players.map((player, index) => (
+                            <div key={index} className="flex justify-between items-baseline py-1 text-gray-300 gap-4">
+                                <span className="font-medium w-40 truncate text-left">{player.playerName}</span>
+                                <span className="font-mono w-16 text-right">{player.total}</span>
+                                <span className="text-xl text-gray-400 w-16 text-right">{player.rank}</span>
+                            </div>
+                        ))}
+                    </div>
+                     {/* Footer / Difference */}
+                    <div className="w-full text-center mt-8">
+                        <p className="text-6xl font-light text-gray-400">
+                            {scoreDifference >= 0 ? '+' : ''}{scoreDifference}
+                        </p>
+                    </div>
                 </div>
+                
 
                 {/* Team B */}
-                <div className="flex flex-col items-center justify-center text-center">
+                <div className="flex flex-col items-center justify-center text-center justify-self-start">
                     <h2 className="text-8xl font-bold text-gray-300">{teamB?.name || 'Team 2'}</h2>
                     <p className="text-9xl font-thin text-gray-400 mt-4">{teamBScore}</p>
                 </div>
-            </div>
-
-            {/* Footer / Difference */}
-            <div className="w-full text-center mt-8">
-                <p className="text-6xl font-light text-gray-400">
-                    {scoreDifference >= 0 ? '+' : ''}{scoreDifference}
-                </p>
             </div>
         </div>
     );
