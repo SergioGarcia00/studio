@@ -4,6 +4,9 @@ import { useMemo } from 'react';
 import { useResultsStore } from '@/lib/store';
 import type { Player } from '@/ai/types';
 import { format } from 'date-fns';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 const FinalSummary = () => {
     const { mergedData } = useResultsStore();
@@ -43,79 +46,108 @@ const FinalSummary = () => {
     }, [data]);
 
     const teamNames = Object.keys(groupedData);
-    const teamA = teamNames[0] ? { name: teamNames[0].split('(')[0].trim(), players: groupedData[teamNames[0]] } : null;
-    const teamB = teamNames[1] ? { name: teamNames[1].split('(')[0].trim(), players: groupedData[teamNames[1]] } : null;
+    const teamA = teamNames[0] ? { name: teamNames[0], players: groupedData[teamNames[0]] } : null;
+    const teamB = teamNames[1] ? { name: teamNames[1], players: groupedData[teamNames[1]] } : null;
     
     const teamAScore = teamA ? teamA.players.reduce((acc, p) => acc + (p.total || 0), 0) : 0;
     const teamBScore = teamB ? teamB.players.reduce((acc, p) => acc + (p.total || 0), 0) : 0;
-    const scoreDifference = teamAScore - teamBScore;
+    
+    const winningTeam = teamAScore >= teamBScore ? teamA : teamB;
+    const losingTeam = teamAScore < teamBScore ? teamA : teamB;
+    const winningScore = Math.max(teamAScore, teamBScore);
+    const losingScore = Math.min(teamAScore, teamBScore);
+    const scoreDifference = winningScore - losingScore;
 
-    const today = format(new Date(), 'd MMM yyyy');
+    const today = format(new Date(), 'MMMM d, yyyy');
 
     if (data.length === 0) {
         return (
-            <div className="flex items-center justify-center h-full text-center text-gray-400">
-                <p>No summary data available.<br/>Process 12 races or a summary image to see the results.</p>
-            </div>
+            <Card className="max-w-4xl mx-auto">
+                <CardHeader>
+                    <CardTitle>No Summary Data</CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center h-64 text-center text-gray-400">
+                    <p>Process 12 races or a summary image to see the results.</p>
+                </CardContent>
+            </Card>
         );
     }
     
     return (
-        <div className="bg-gray-900 p-8 rounded-lg max-w-6xl mx-auto flex flex-col items-center">
-            {/* Header */}
-            <div className="w-full flex justify-between items-center text-gray-400 mb-8">
-                <div className="flex items-center gap-2">
-                    {/* Placeholder for a logo if needed */}
-                    <div className='w-10 h-10'></div>
-                </div>
-                <div className="text-right">
-                    <p className="font-bold text-xl">{today}</p>
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="w-full grid grid-cols-3 items-center justify-items-center gap-8 relative">
-                {/* Team A */}
-                <div className="flex flex-col items-center justify-center text-center justify-self-end">
-                    <h2 className="text-8xl font-bold text-blue-400">{teamA?.name || 'Team 1'}</h2>
-                    <p className="text-9xl font-thin text-blue-300 mt-4">{teamAScore}</p>
-                </div>
-
-                {/* Player List & Difference */}
-                <div className="flex flex-col items-center">
-                    <div className="flex flex-col text-2xl">
-                        {teamA?.players.map((player, index) => (
-                            <div key={index} className="flex justify-between items-baseline py-1 text-blue-400 gap-4">
-                                <span className="font-medium w-40 truncate text-left">{player.playerName}</span>
-                                <span className="font-mono w-16 text-right">{player.total}</span>
-                                <span className="text-xl text-gray-400 w-16 text-right">{player.rank}</span>
-                            </div>
-                        ))}
-                        <div className='h-8'></div>
-                         {teamB?.players.map((player, index) => (
-                            <div key={index} className="flex justify-between items-baseline py-1 text-gray-300 gap-4">
-                                <span className="font-medium w-40 truncate text-left">{player.playerName}</span>
-                                <span className="font-mono w-16 text-right">{player.total}</span>
-                                <span className="text-xl text-gray-400 w-16 text-right">{player.rank}</span>
-                            </div>
-                        ))}
+        <Card className="max-w-4xl mx-auto bg-gray-900/50 border-gray-800 text-white">
+            <CardHeader className="text-center">
+                <CardTitle className="text-4xl font-bold">Final Results</CardTitle>
+                <CardDescription className="text-gray-400">{today}</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+                {/* Score Summary */}
+                <div className="flex justify-around items-center mb-10 text-center">
+                    <div className="flex flex-col items-center">
+                        <h2 className="text-3xl font-semibold text-blue-400">{winningTeam?.name.split('(')[0].trim() || 'Team 1'}</h2>
+                        <p className="text-8xl font-bold text-blue-300">{winningScore}</p>
                     </div>
-                     {/* Footer / Difference */}
-                    <div className="w-full text-center mt-8">
-                        <p className="text-6xl font-light text-gray-400">
-                            {scoreDifference >= 0 ? '+' : ''}{scoreDifference}
+                    <div className="flex flex-col items-center">
+                         <p className="text-5xl font-light text-gray-400 self-center mt-10">
+                            +{scoreDifference}
                         </p>
                     </div>
+                    <div className="flex flex-col items-center">
+                        <h2 className="text-3xl font-semibold text-gray-400">{losingTeam?.name.split('(')[0].trim() || 'Team 2'}</h2>
+                        <p className="text-8xl font-bold text-gray-500">{losingScore}</p>
+                    </div>
                 </div>
-                
 
-                {/* Team B */}
-                <div className="flex flex-col items-center justify-center text-center justify-self-start">
-                    <h2 className="text-8xl font-bold text-gray-300">{teamB?.name || 'Team 2'}</h2>
-                    <p className="text-9xl font-thin text-gray-400 mt-4">{teamBScore}</p>
+                {/* Player Tables */}
+                <div className="space-y-8">
+                    {winningTeam && (
+                        <div>
+                            <h3 className="text-2xl font-semibold mb-3 text-blue-400">{winningTeam.name}</h3>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="border-gray-700">
+                                        <TableHead className="w-1/3 text-gray-400">Player</TableHead>
+                                        <TableHead className="w-1/3 text-right text-gray-400">Total Score</TableHead>
+                                        <TableHead className="w-1/3 text-right text-gray-400">Final Rank</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {winningTeam.players.map((player) => (
+                                        <TableRow key={player.playerName} className="border-gray-800">
+                                            <TableCell className="font-medium">{player.playerName}</TableCell>
+                                            <TableCell className="text-right font-mono">{player.total}</TableCell>
+                                            <TableCell className="text-right font-semibold">{player.rank}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+                    {losingTeam && (
+                         <div>
+                            <h3 className="text-2xl font-semibold mb-3 text-gray-400">{losingTeam.name}</h3>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="border-gray-700">
+                                        <TableHead className="w-1/3 text-gray-400">Player</TableHead>
+                                        <TableHead className="w-1/3 text-right text-gray-400">Total Score</TableHead>
+                                        <TableHead className="w-1/3 text-right text-gray-400">Final Rank</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {losingTeam.players.map((player) => (
+                                        <TableRow key={player.playerName} className="border-gray-800">
+                                            <TableCell className="font-medium">{player.playerName}</TableCell>
+                                            <TableCell className="text-right font-mono">{player.total}</TableCell>
+                                            <TableCell className="text-right font-semibold">{player.rank}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
                 </div>
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 };
 
