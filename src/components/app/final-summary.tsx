@@ -98,7 +98,7 @@ const FinalSummary = () => {
                 </div>
 
                 {/* Player Tables */}
-                <div className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
                     {winningTeam && (
                         <div>
                             <h3 className="text-xl font-semibold mb-2 text-blue-400">{winningTeam.name}</h3>
@@ -106,8 +106,8 @@ const FinalSummary = () => {
                                 <TableHeader>
                                     <TableRow className="border-gray-700">
                                         <TableHead className="w-1/3 text-gray-400">Player</TableHead>
-                                        <TableHead className="w-1/3 text-right text-gray-400">Total Score</TableHead>
-                                        <TableHead className="w-1/3 text-right text-gray-400">Final Rank</TableHead>
+                                        <TableHead className="w-1/3 text-right text-gray-400">Total</TableHead>
+                                        <TableHead className="w-1/3 text-right text-gray-400">Rank</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -129,8 +129,8 @@ const FinalSummary = () => {
                                 <TableHeader>
                                     <TableRow className="border-gray-700">
                                         <TableHead className="w-1/3 text-gray-400">Player</TableHead>
-                                        <TableHead className="w-1/3 text-right text-gray-400">Total Score</TableHead>
-                                        <TableHead className="w-1/3 text-right text-gray-400">Final Rank</TableHead>
+                                        <TableHead className="w-1/3 text-right text-gray-400">Total</TableHead>
+                                        <TableHead className="w-1/3 text-right text-gray-400">Rank</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
