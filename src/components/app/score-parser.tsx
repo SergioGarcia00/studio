@@ -69,6 +69,11 @@ type ImageQueueItem = {
 type RacePick = 'blue' | 'red' | 'none';
 type RacePicks = { [raceNumber: number]: RacePick };
 
+type Usage = {
+  count: number;
+  timestamp: number;
+};
+
 
 const RANK_TO_SCORE: { [key: string]: number } = {
  '1st': 15, '2nd': 12, '3rd': 10, '4th': 9, '5th': 8, '6th': 7,
@@ -99,6 +104,36 @@ export default function ScoreParser() {
  const [nextRaceNumber, setNextRaceNumber] = useState(1);
  const { toast } = useToast();
  const previewRef = useRef<RaceResultsPreviewRef>(null);
+ const [usage, setUsage] = useState({ count: 0 });
+
+
+  useEffect(() => {
+    const getUsageCount = () => {
+      const storedUsage = localStorage.getItem('scoreParserUsage');
+      if (storedUsage) {
+        const parsedUsage: Usage = JSON.parse(storedUsage);
+        const now = new Date().getTime();
+        // Reset if it's been more than 24 hours
+        if (now - parsedUsage.timestamp > 24 * 60 * 60 * 1000) {
+          localStorage.removeItem('scoreParserUsage');
+          setUsage({ count: 0 });
+        } else {
+          setUsage({ count: parsedUsage.count });
+        }
+      }
+    };
+    getUsageCount();
+  }, []);
+
+  const incrementUsage = () => {
+    const newCount = usage.count + 1;
+    const newUsage: Usage = {
+      count: newCount,
+      timestamp: new Date().getTime(),
+    };
+    localStorage.setItem('scoreParserUsage', JSON.stringify(newUsage));
+    setUsage({ count: newCount });
+  };
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -553,6 +588,7 @@ export default function ScoreParser() {
 
         if(finalRaceData.some(d => d.isValid)) {
           updateMergedDataWithRace(finalRaceData, raceForThisImage, masterPlayerList);
+          incrementUsage();
 
           finalRaceData.forEach(p => {
               if (p.isValid && p.playerName) {
@@ -685,6 +721,8 @@ export default function ScoreParser() {
     setPlayerNames('');
     setShockLog({});
     setRacePicks({});
+    localStorage.removeItem('scoreParserUsage');
+    setUsage({ count: 0 });
     toast({
         title: "Results Cleared",
         description: "The review and download area has been cleared.",
@@ -724,7 +762,10 @@ export default function ScoreParser() {
         <Card className='shadow-lg'>
           <CardHeader>
             <CardTitle>1. Upload Race Scoreboards</CardTitle>
-            <CardDescription>Select or drop race images one by one or in a batch.</CardDescription>
+            <CardDescription>
+              Select or drop race images one by one or in a batch.
+            </CardDescription>
+            <p className="text-sm text-muted-foreground pt-2">Usage today: {usage.count} images</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center justify-center w-full">
@@ -1034,5 +1075,3 @@ export default function ScoreParser() {
     </div>
   );
 }
-
-    
