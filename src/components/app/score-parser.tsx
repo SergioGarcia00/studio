@@ -18,6 +18,9 @@ import {
  TestTube2,
  FileDown,
  ChevronDown,
+ RefreshCw,
+ Circle,
+ Minus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -46,12 +49,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { RaceResultsPreview, type RaceResultsPreviewRef } from './race-results-preview';
 import { Textarea } from '../ui/textarea';
 import { cn } from '@/lib/utils';
+import { Slider } from '../ui/slider';
+import { Label } from '../ui/label';
 
 
 type ImageQueueItem = {
  file: File;
  retries: number;
 };
+
+type RacePick = 'blue' | 'red' | 'none';
+type RacePicks = { [raceNumber: number]: RacePick };
+
 
 const RANK_TO_SCORE: { [key: string]: number } = {
  '1st': 15, '2nd': 12, '3rd': 10, '4th': 9, '5th': 8, '6th': 7,
@@ -75,6 +84,7 @@ export default function ScoreParser() {
  const [extractedData, setExtractedData] = useState<ExtractedData[]>([]);
  const [mergedData, setMergedData] = useState<MergedRaceData>({});
  const [shockLog, setShockLog] = useState<ShockLog>({});
+ const [racePicks, setRacePicks] = useState<RacePicks>({});
  const [isLoading, setIsLoading] = useState(false);
  const [error, setError] = useState<string | null>(null);
  const [progress, setProgress] = useState(0);
@@ -332,6 +342,7 @@ export default function ScoreParser() {
     const getRankString = (rank: number) => `${rank}${rankSuffixes[rank - 1] || 'th'}`;
     const allRanks = Array.from({ length: 12 }, (_, i) => getRankString(i + 1));
     const newShockLog: ShockLog = {};
+    const newRacePicks: RacePicks = {};
 
     // --- Scenario 1: Single DC ---
     const singleDcRace = Math.floor(Math.random() * 12);
@@ -368,10 +379,24 @@ export default function ScoreParser() {
             newMergedData[name].ranks[i] = ranksToAssign[pIndex];
         });
 
+        if (i === singleDcRace) {
+            newMergedData[singleDcPlayer].ranks[i] = null;
+        }
+        if (i === doubleDcRace) {
+            newMergedData[doubleDcPlayer1].ranks[i] = null;
+            newMergedData[doubleDcPlayer2].ranks[i] = null;
+        }
+
         if (Math.random() < 0.8) {
           const shockedPlayer = playersInRace[Math.floor(Math.random() * playersInRace.length)];
           newShockLog[i + 1] = shockedPlayer;
         }
+        
+        const pick = Math.random();
+        if (pick < 0.45) newRacePicks[i + 1] = 'blue';
+        else if (pick < 0.9) newRacePicks[i + 1] = 'red';
+        else newRacePicks[i + 1] = 'none';
+
     }
    
     let finalData = recalculateAllTotals(newMergedData);
@@ -410,6 +435,7 @@ export default function ScoreParser() {
     setExtractedData(newExtractedData);
     setMergedData(finalData);
     setShockLog(newShockLog);
+    setRacePicks(newRacePicks);
 
     setTimeout(() => {
         setIsLoading(false);
@@ -650,11 +676,46 @@ export default function ScoreParser() {
     setNextRaceNumber(1);
     setPlayerNames('');
     setShockLog({});
+    setRacePicks({});
     toast({
         title: "Results Cleared",
         description: "The review and download area has been cleared.",
     });
   }
+
+  const handleRaceNumberChange = (originalIndex: number, newRaceNumber: number) => {
+    setExtractedData(currentData => {
+        const newData = [...currentData];
+        // Ensure the new race number isn't already taken by another item
+        const isTaken = newData.some((item, idx) => item.raceNumber === newRaceNumber && idx !== originalIndex);
+        if (!isTaken) {
+            newData[originalIndex].raceNumber = newRaceNumber;
+        } else {
+            toast({
+                title: 'Race number taken',
+                description: `Race ${newRaceNumber} is already assigned. Please choose another.`,
+                variant: 'destructive',
+            })
+        }
+        return newData;
+    });
+  };
+
+  const handleUpdateOrder = () => {
+      setExtractedData(currentData => [...currentData].sort((a, b) => a.raceNumber - b.raceNumber));
+      toast({
+        title: 'Race Order Updated',
+        description: 'The race list has been re-sorted based on the race numbers.',
+      });
+  };
+
+  const handleTeamPickChange = (raceNumber: number, value: number) => {
+    const pick: RacePick = value === 0 ? 'blue' : value === 1 ? 'none' : 'red';
+    setRacePicks(currentPicks => ({
+        ...currentPicks,
+        [raceNumber]: pick,
+    }));
+  };
 
   const allPlayers = useMemo(() => Object.values(mergedData), [mergedData]);
   const isDemoData = useMemo(() => extractedData.length > 0 && extractedData.every(d => d.imageUrl === ''), [extractedData]);
@@ -812,6 +873,12 @@ export default function ScoreParser() {
               </div>
             </CardHeader>
             <CardContent>
+              <div className='flex justify-end mb-2'>
+                  <Button onClick={handleUpdateOrder} size="sm" variant="outline">
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Update Order
+                  </Button>
+              </div>
               <Accordion type="multiple" className="w-full" defaultValue={extractedData.map((_, i) => `item-${i}`)}>
                 {extractedData.map((result, index) => (
                   <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
@@ -877,26 +944,55 @@ export default function ScoreParser() {
                           </TableBody>
                         </Table>
                       </div>
-                      <div className='flex items-center justify-end gap-2 mt-4 p-2 border-t'>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Zap className="mr-2 h-4 w-4" />
-                                {shockLog[result.raceNumber] ? `Shock: ${shockLog[result.raceNumber]}` : 'Mark Shock'}
-                                <ChevronDown className="ml-2 h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleToggleShock(result.raceNumber, shockLog[result.raceNumber])}>
-                                Remove Shock
-                              </DropdownMenuItem>
-                              {allPlayers.map(p => (
-                                <DropdownMenuItem key={p.playerName} onClick={() => handleToggleShock(result.raceNumber, p.playerName)}>
-                                  {p.playerName}
+                      <div className='space-y-6 mt-4 p-4 border rounded-lg'>
+                        <div className="grid gap-2">
+                            <Label>Race Number: {result.raceNumber}</Label>
+                            <Slider
+                                value={[result.raceNumber]}
+                                onValueChange={([val]) => handleRaceNumberChange(index, val)}
+                                min={1}
+                                max={12}
+                                step={1}
+                            />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Team Pick</Label>
+                          <div className='flex items-center gap-4'>
+                            <Circle className="h-5 w-5 text-blue-500 fill-blue-500" />
+                            <Slider
+                                value={[racePicks[result.raceNumber] === 'blue' ? 0 : racePicks[result.raceNumber] === 'none' ? 1 : 2]}
+                                onValueChange={([val]) => handleTeamPickChange(result.raceNumber, val)}
+                                min={0}
+                                max={2}
+                                step={1}
+                                className='flex-1'
+                            />
+                             <Circle className="h-5 w-5 text-red-500 fill-red-500" />
+                          </div>
+                        </div>
+
+                        <div className='flex items-center justify-end gap-2 border-t pt-4'>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Zap className="mr-2 h-4 w-4" />
+                                  {shockLog[result.raceNumber] ? `Shock: ${shockLog[result.raceNumber]}` : 'Mark Shock'}
+                                  <ChevronDown className="ml-2 h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleToggleShock(result.raceNumber, shockLog[result.raceNumber])}>
+                                  Remove Shock
                                 </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                {allPlayers.map(p => (
+                                  <DropdownMenuItem key={p.playerName} onClick={() => handleToggleShock(result.raceNumber, p.playerName)}>
+                                    {p.playerName}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -932,11 +1028,5 @@ export default function ScoreParser() {
     </div>
   );
 }
-
-    
-
-    
-
-
 
     
