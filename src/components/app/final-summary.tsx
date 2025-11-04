@@ -62,7 +62,7 @@ const FinalSummary = () => {
 
     if (data.length === 0) {
         return (
-            <Card className="max-w-4xl mx-auto">
+            <Card className="max-w-2xl mx-auto">
                 <CardHeader>
                     <CardTitle>No Summary Data</CardTitle>
                 </CardHeader>
@@ -74,34 +74,34 @@ const FinalSummary = () => {
     }
     
     return (
-        <Card className="max-w-4xl mx-auto bg-gray-900/50 border-gray-800 text-white">
+        <Card className="max-w-2xl mx-auto bg-gray-900/50 border-gray-800 text-white">
             <CardHeader className="text-center">
-                <CardTitle className="text-4xl font-bold">Final Results</CardTitle>
+                <CardTitle className="text-3xl font-bold">Final Results</CardTitle>
                 <CardDescription className="text-gray-400">{today}</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
                 {/* Score Summary */}
-                <div className="flex justify-around items-center mb-10 text-center">
+                <div className="flex justify-around items-center mb-8 text-center">
                     <div className="flex flex-col items-center">
-                        <h2 className="text-3xl font-semibold text-blue-400">{winningTeam?.name.split('(')[0].trim() || 'Team 1'}</h2>
-                        <p className="text-8xl font-bold text-blue-300">{winningScore}</p>
+                        <h2 className="text-2xl font-semibold text-blue-400">{winningTeam?.name.split('(')[0].trim() || 'Team 1'}</h2>
+                        <p className="text-6xl font-bold text-blue-300">{winningScore}</p>
                     </div>
                     <div className="flex flex-col items-center">
-                         <p className="text-5xl font-light text-gray-400 self-center mt-10">
+                         <p className="text-3xl font-light text-gray-400 self-center mt-8">
                             +{scoreDifference}
                         </p>
                     </div>
                     <div className="flex flex-col items-center">
-                        <h2 className="text-3xl font-semibold text-gray-400">{losingTeam?.name.split('(')[0].trim() || 'Team 2'}</h2>
-                        <p className="text-8xl font-bold text-gray-500">{losingScore}</p>
+                        <h2 className="text-2xl font-semibold text-gray-400">{losingTeam?.name.split('(')[0].trim() || 'Team 2'}</h2>
+                        <p className="text-6xl font-bold text-gray-500">{losingScore}</p>
                     </div>
                 </div>
 
                 {/* Player Tables */}
-                <div className="space-y-8">
+                <div className="space-y-6">
                     {winningTeam && (
                         <div>
-                            <h3 className="text-2xl font-semibold mb-3 text-blue-400">{winningTeam.name}</h3>
+                            <h3 className="text-xl font-semibold mb-2 text-blue-400">{winningTeam.name}</h3>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="border-gray-700">
@@ -114,8 +114,8 @@ const FinalSummary = () => {
                                     {winningTeam.players.map((player) => (
                                         <TableRow key={player.playerName} className="border-gray-800">
                                             <TableCell className="font-medium">{player.playerName}</TableCell>
-                                            <TableCell className="text-right font-mono">{player.total}</TableCell>
-                                            <TableCell className="text-right font-semibold">{player.rank}</TableCell>
+                                            <TableCell className="text-right font-mono text-sm">{player.total}</TableCell>
+                                            <TableCell className="text-right font-semibold text-sm">{player.rank}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -124,7 +124,7 @@ const FinalSummary = () => {
                     )}
                     {losingTeam && (
                          <div>
-                            <h3 className="text-2xl font-semibold mb-3 text-gray-400">{losingTeam.name}</h3>
+                            <h3 className="text-xl font-semibold mb-2 text-gray-400">{losingTeam.name}</h3>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="border-gray-700">
@@ -137,8 +137,8 @@ const FinalSummary = () => {
                                     {losingTeam.players.map((player) => (
                                         <TableRow key={player.playerName} className="border-gray-800">
                                             <TableCell className="font-medium">{player.playerName}</TableCell>
-                                            <TableCell className="text-right font-mono">{player.total}</TableCell>
-                                            <TableCell className="text-right font-semibold">{player.rank}</TableCell>
+                                            <TableCell className="text-right font-mono text-sm">{player.total}</TableCell>
+                                            <TableCell className="text-right font-semibold text-sm">{player.rank}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
