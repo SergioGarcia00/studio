@@ -112,7 +112,7 @@ const FinalSummary = () => {
                 <div className="grid md:grid-cols-2 gap-6">
                     {winningTeam && (
                         <div>
-                            <h3 className="text-xl font-semibold mb-2 text-blue-400">{winningTeam.name.split(' (')[0].trim()}</h3>
+                            <h3 className="text-xl font-semibold mb-2 text-blue-400 text-center">{winningTeam.name.split(' (')[0].trim()}</h3>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="border-gray-700">
@@ -140,7 +140,7 @@ const FinalSummary = () => {
                     )}
                     {losingTeam && (
                          <div>
-                            <h3 className="text-xl font-semibold mb-2 text-gray-400">{losingTeam.name.split(' (')[0].trim()}</h3>
+                            <h3 className="text-xl font-semibold mb-2 text-gray-400 text-center">{losingTeam.name.split(' (')[0].trim()}</h3>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="border-gray-700">
