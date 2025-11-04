@@ -72,6 +72,8 @@ type ImageQueueItem = {
  retries: number;
 };
 
+type LocalExtractedData = ExtractedData & { imageObjectURL?: string };
+
 
 type Usage = {
   count: number;
@@ -110,6 +112,17 @@ export default function ScoreParser() {
  const [nextRaceNumber, setNextRaceNumber] = useState(1);
  const { toast } = useToast();
  const [usage, setUsage] = useState({ count: 0 });
+ const [localExtractedData, setLocalExtractedData] = useState<LocalExtractedData[]>([]);
+
+ useEffect(() => {
+    // Sync local state with persisted store on mount
+    setLocalExtractedData(extractedData.map(d => ({ ...d })));
+  }, []);
+
+  useEffect(() => {
+    // When local data changes, update the zustand store (without image data)
+    setExtractedData(localExtractedData);
+  }, [localExtractedData, setExtractedData]);
 
 
   useEffect(() => {
@@ -483,7 +496,7 @@ export default function ScoreParser() {
         });
     }
    
-    setExtractedData(newExtractedData);
+    setLocalExtractedData(newExtractedData);
     setMergedData(finalData);
     setShockLog(newShockLog);
     setRacePicks(newRacePicks);
@@ -514,7 +527,7 @@ export default function ScoreParser() {
     
     const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
     let processedCount = 0;
-    const batchExtractedResults: ExtractedData[] = [];
+    const batchExtractedResults: LocalExtractedData[] = [];
     const providedPlayerNames = playerNames.split(',').map(name => name.trim()).filter(name => name.length > 0);
     let currentRaceNumber = nextRaceNumber;
     
@@ -583,8 +596,9 @@ export default function ScoreParser() {
             };
         });
 
-        const newExtractedResult = {
-          imageUrl: url,
+        const newExtractedResult: LocalExtractedData = {
+          imageUrl: '', // We don't store this in state
+          imageObjectURL: URL.createObjectURL(file), // For local display
           filename: file.name,
           raceNumber: raceForThisImage,
           data: finalRaceData,
@@ -612,7 +626,8 @@ export default function ScoreParser() {
               });
           } else {
               const errorResult = {
-                  imageUrl: URL.createObjectURL(file),
+                  imageUrl: '',
+                  imageObjectURL: URL.createObjectURL(file),
                   filename: file.name,
                   raceNumber: raceForThisImage,
                   data: [],
@@ -637,10 +652,10 @@ export default function ScoreParser() {
         batchExtractedResults.sort((a,b) => a.raceNumber - b.raceNumber);
 
         // Get the latest state before updating
-        const currentExtractedData = useResultsStore.getState().extractedData;
+        const currentLocalExtractedData = [...localExtractedData];
         const currentMergedData = useResultsStore.getState().mergedData;
         
-        const allExtractedData = [...currentExtractedData, ...batchExtractedResults].sort((a,b) => a.raceNumber - b.raceNumber);
+        const allExtractedData = [...currentLocalExtractedData, ...batchExtractedResults].sort((a,b) => a.raceNumber - b.raceNumber);
         
         let newMergedData = currentMergedData;
         for (const result of batchExtractedResults) {
@@ -649,7 +664,7 @@ export default function ScoreParser() {
           }
         }
         
-        setExtractedData(allExtractedData);
+        setLocalExtractedData(allExtractedData);
         setMergedData(newMergedData);
     }
 
@@ -718,7 +733,7 @@ export default function ScoreParser() {
   
   
   const handleClearResults = () => {
-    setExtractedData([]);
+    setLocalExtractedData([]);
     setMergedData({});
     setImages([]);
     setError(null);
@@ -736,28 +751,21 @@ export default function ScoreParser() {
   }
 
   const handleRaceNameChange = (raceNumberToUpdate: number, newRaceName: string) => {
-    // Get the current state from the store
-    const currentData = useResultsStore.getState().extractedData;
-    
-    // Ensure it's an array before proceeding
-    if (!Array.isArray(currentData)) return;
-
-    // Create a new array with the updated item
-    const newData = currentData.map(item => {
-        if (item.raceNumber === raceNumberToUpdate) {
-            // Create a new object for the item to be updated
-            return { ...item, raceName: newRaceName };
-        }
-        // Return the existing item if it's not the one to be updated
-        return item;
+    setLocalExtractedData(currentData => {
+        if (!Array.isArray(currentData)) return [];
+        const newData = currentData.map(item => {
+            if (item.raceNumber === raceNumberToUpdate) {
+                return { ...item, raceName: newRaceName };
+            }
+            return item;
+        });
+        return newData;
     });
-
-    // Update the state with the new array
-    setExtractedData(newData);
   };
 
+
   const handleUpdateOrder = () => {
-      setExtractedData(currentData => [...currentData].sort((a, b) => a.raceNumber - b.raceNumber));
+      setLocalExtractedData(currentData => [...currentData].sort((a, b) => a.raceNumber - b.raceNumber));
       toast({
         title: 'Race Order Updated',
         description: 'The race list has been re-sorted based on the race numbers.',
@@ -773,7 +781,7 @@ export default function ScoreParser() {
   };
 
   const allPlayers = useMemo(() => Object.values(mergedData), [mergedData]);
-  const isDemoData = useMemo(() => Array.isArray(extractedData) && extractedData.length > 0 && extractedData.every(d => d.imageUrl === ''), [extractedData]);
+  const isDemoData = useMemo(() => Array.isArray(localExtractedData) && localExtractedData.length > 0 && localExtractedData.every(d => !d.imageObjectURL), [localExtractedData]);
 
   return (
     <div className="flex flex-col h-full">
@@ -823,7 +831,7 @@ export default function ScoreParser() {
                     value={playerNames}
                     onChange={(e) => setPlayerNames(e.target.value)}
                     rows={4}
-                    disabled={isLoading || (Array.isArray(extractedData) && extractedData.length > 0)}
+                    disabled={isLoading || (Array.isArray(localExtractedData) && localExtractedData.length > 0)}
                     />
                 </CardContent>
             </Card>
@@ -886,7 +894,7 @@ export default function ScoreParser() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            {Array.isArray(extractedData) && extractedData.length > 0 && !isLoading && (
+            {Array.isArray(localExtractedData) && localExtractedData.length > 0 && !isLoading && (
               <Card className="shadow-lg">
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -915,16 +923,16 @@ export default function ScoreParser() {
                       Update Order
                     </Button>
                   </div>
-                  {Array.isArray(extractedData) && (
-                    <Accordion type="multiple" className="w-full" defaultValue={extractedData.map((_, i) => `item-${i}`)}>
-                      {extractedData.map((result, index) => (
+                  {Array.isArray(localExtractedData) && (
+                    <Accordion type="multiple" className="w-full" defaultValue={localExtractedData.map((_, i) => `item-${i}`)}>
+                      {localExtractedData.map((result, index) => (
                         <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
                           <AccordionTrigger>
                             <div className='flex items-center justify-between w-full pr-4'>
                               <div className='flex items-center gap-4'>
-                                {result.imageUrl ? (
+                                {result.imageObjectURL ? (
                                   <div className="relative aspect-video w-24">
-                                    <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
+                                    <Image src={result.imageObjectURL} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
                                   </div>
                                 ) : (
                                   <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
@@ -1047,7 +1055,7 @@ export default function ScoreParser() {
                 </CardContent>
               </Card>
             )}
-            {!isLoading && (!Array.isArray(extractedData) || extractedData.length === 0) && (
+            {!isLoading && (!Array.isArray(localExtractedData) || localExtractedData.length === 0) && (
               <Card className="flex flex-col items-center justify-center h-full min-h-[400px] border-dashed shadow-inner">
                 <CardContent className="text-center p-6">
                   {images.length > 0 ?

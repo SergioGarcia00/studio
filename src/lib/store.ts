@@ -6,11 +6,11 @@ interface ResultsState {
   mergedData: MergedRaceData;
   setMergedData: (data: MergedRaceData) => void;
   shockLog: ShockLog;
-  setShockLog: (log: ShockLog) => void;
+  setShockLog: (log: ShockLog | ((current: ShockLog) => ShockLog)) => void;
   extractedData: ExtractedData[];
   setExtractedData: (data: ExtractedData[]) => void;
   racePicks: RacePicks;
-  setRacePicks: (picks: RacePicks) => void;
+  setRacePicks: (picks: RacePicks | ((current: RacePicks) => RacePicks)) => void;
 }
 
 export const useResultsStore = create<ResultsState>()(
@@ -19,11 +19,15 @@ export const useResultsStore = create<ResultsState>()(
       mergedData: {},
       setMergedData: (data) => set({ mergedData: data }),
       shockLog: {},
-      setShockLog: (log) => set({ shockLog: log }),
+      setShockLog: (log) => set(state => ({ shockLog: typeof log === 'function' ? log(state.shockLog) : log })),
       extractedData: [],
-      setExtractedData: (data) => set({ extractedData: data }),
+      setExtractedData: (data) => {
+        // Create a new array with imageUrl removed to save space
+        const sanitizedData = data.map(({ imageUrl, ...rest }) => rest);
+        set({ extractedData: sanitizedData });
+      },
       racePicks: {},
-      setRacePicks: (picks) => set({ racePicks: picks }),
+      setRacePicks: (picks) => set(state => ({ racePicks: typeof picks === 'function' ? picks(state.racePicks) : picks })),
     }),
     {
       name: 'race-results-storage', // name of the item in the storage (must be unique)
