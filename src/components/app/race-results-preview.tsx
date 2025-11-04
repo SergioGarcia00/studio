@@ -390,5 +390,3 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
 });
 
 RaceResultsPreview.displayName = 'RaceResultsPreview';
-
-    
