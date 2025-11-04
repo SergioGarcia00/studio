@@ -3,6 +3,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   FileUp,
   Loader2,
@@ -56,14 +57,13 @@ import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, 
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { RaceResultsPreview, type RaceResultsPreviewRef } from './race-results-preview';
 import { Textarea } from '../ui/textarea';
 import { cn } from '@/lib/utils';
 import { Slider } from '../ui/slider';
 import { Label } from '../ui/label';
 import { RACE_TRACKS } from '@/lib/race-tracks';
 import Header from './header';
+import { useResultsStore } from '@/lib/store';
 
 
 type ImageQueueItem = {
@@ -100,15 +100,13 @@ export default function ScoreParser() {
  const [images, setImages] = useState<File[]>([]);
  const [playerNames, setPlayerNames] = useState('');
  const [extractedData, setExtractedData] = useState<ExtractedData[]>([]);
- const [mergedData, setMergedData] = useState<MergedRaceData>({});
- const [shockLog, setShockLog] = useState<ShockLog>({});
+ const { mergedData, setMergedData, shockLog, setShockLog } = useResultsStore();
  const [racePicks, setRacePicks] = useState<RacePicks>({});
  const [isLoading, setIsLoading] = useState(false);
  const [error, setError] = useState<string | null>(null);
  const [progress, setProgress] = useState(0);
  const [nextRaceNumber, setNextRaceNumber] = useState(1);
  const { toast } = useToast();
- const previewRef = useRef<RaceResultsPreviewRef>(null);
  const [usage, setUsage] = useState({ count: 0 });
 
 
@@ -340,7 +338,7 @@ export default function ScoreParser() {
         const finalData = recalculateAllTotals(updatedData);
         return finalData;
       });
-  }, []);
+  }, [setMergedData]);
 
   const handleToggleShock = (raceNumber: number, playerName: string) => {
     setShockLog(currentLog => {
@@ -881,30 +879,12 @@ export default function ScoreParser() {
                       <CardDescription>Review extracted data and download or preview results.</CardDescription>
                     </div>
                     <div className='flex items-center gap-2 flex-wrap'>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" disabled={allPlayers.length === 0}>
-                            <TableIcon className="mr-2 h-4 w-4" />
-                            Preview Results
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-7xl">
-                          <DialogHeader className="flex-row items-center justify-between">
-                            <DialogTitle>Race Results Preview</DialogTitle>
-                            <div className='flex items-center gap-2'>
-                              <Button variant="outline" onClick={() => previewRef.current?.downloadAsCsv()} disabled={allPlayers.length === 0}>
-                                <FileDown className="mr-2 h-4 w-4" />
-                                Export to Excel
-                              </Button>
-                              <Button variant="outline" onClick={() => previewRef.current?.downloadAsPng()} disabled={allPlayers.length === 0}>
-                                <ImageDown className="mr-2 h-4 w-4" />
-                                Create PNG
-                              </Button>
-                            </div>
-                          </DialogHeader>
-                          <RaceResultsPreview ref={previewRef} data={allPlayers as Player[]} shockLog={shockLog} />
-                        </DialogContent>
-                      </Dialog>
+                      <Button asChild variant="outline" disabled={allPlayers.length === 0}>
+                        <Link href="/preview" target="_blank">
+                          <TableIcon className="mr-2 h-4 w-4" />
+                          Preview Results
+                        </Link>
+                      </Button>
                       <Button onClick={handleClearResults} variant="destructive" size="icon">
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Clear Results</span>

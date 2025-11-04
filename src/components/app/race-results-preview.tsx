@@ -17,10 +17,9 @@ import html2canvas from 'html2canvas';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Button } from '../ui/button';
 import { FileDown, ImageDown, Zap } from 'lucide-react';
+import { useResultsStore } from '@/lib/store';
 
 interface RaceResultsPreviewProps {
-  data: Player[];
-  shockLog: ShockLog;
 }
 
 export interface RaceResultsPreviewRef {
@@ -53,10 +52,12 @@ const ShockIcon = ({ className }: { className?: string }) => (
 );
 
 
-export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsPreviewProps>(({ data, shockLog }, ref) => {
+export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsPreviewProps>((_, ref) => {
   const printRef = useRef<HTMLDivElement>(null);
+  const { mergedData, shockLog } = useResultsStore();
+  const data = Object.values(mergedData) as Player[];
 
-    const groupedData = useMemo(() => {
+  const groupedData = useMemo(() => {
     const validPlayers = data.filter(player => player.isValid);
     const groups: { [key: string]: Player[] } = {};
     
@@ -235,8 +236,8 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
   const numColumns = 12 + 3 + 3; // 12 races + 3 GPs + Player + Rank + Total
 
   return (
-    <ScrollArea className="h-[70vh] w-full" ref={printRef}>
-        <div className="bg-card">
+    <ScrollArea className="h-[100vh] w-full" ref={printRef}>
+        <div className="bg-card p-4">
       <Table className='border-collapse border-spacing-0 bg-card'>
         <TableHeader className='sticky top-0 bg-background z-10'>
           <TableRow>
