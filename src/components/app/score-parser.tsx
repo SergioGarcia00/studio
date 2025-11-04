@@ -85,7 +85,7 @@ type ImageQueueItem = {
  retries: number;
 };
 
-type LocalExtractedData = ExtractedData & { imageObjectURL?: string };
+type LocalExtractedData = Omit<ExtractedData, 'imageUrl'> & { imageObjectURL?: string };
 
 
 type Usage = {
@@ -122,6 +122,7 @@ export default function ScoreParser() {
  const [isLoading, setIsLoading] = useState(false);
  const [error, setError] = useState<string | null>(null);
  const [progress, setProgress] = useState(0);
+ const [processedCount, setProcessedCount] = useState(0);
  const [nextRaceNumber, setNextRaceNumber] = useState(1);
  const { toast } = useToast();
  const [usage, setUsage] = useState({ count: 0 });
@@ -490,7 +491,6 @@ export default function ScoreParser() {
         }
 
         newExtractedData.push({
-            imageUrl: '',
             filename: `Demo Race ${i + 1}`,
             raceNumber: i + 1,
             data: playersForExtractedData.map(p => {
@@ -537,9 +537,10 @@ export default function ScoreParser() {
     setIsLoading(true);
     setError(null);
     setProgress(0);
+    setProcessedCount(0);
     
     const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
-    let processedCount = 0;
+    let count = 0;
     const providedPlayerNames = playerNames.split(',').map(name => name.trim()).filter(name => name.length > 0);
     
     const readFileAsDataURL = (file: File): Promise<string> => {
@@ -594,7 +595,6 @@ export default function ScoreParser() {
             
             // Create a single "ExtractedData" item for review purposes
             const summaryExtractedData: LocalExtractedData = {
-                imageUrl: '',
                 imageObjectURL: URL.createObjectURL(file),
                 filename: file.name,
                 raceNumber: 1, // Treat as one block
@@ -690,7 +690,6 @@ export default function ScoreParser() {
         });
 
         const newExtractedResult: LocalExtractedData = {
-          imageUrl: '',
           imageObjectURL: URL.createObjectURL(file),
           filename: file.name,
           raceNumber: raceForThisImage,
@@ -706,7 +705,8 @@ export default function ScoreParser() {
           incrementUsage();
         }
         
-        processedCount++;
+        count++;
+        setProcessedCount(count);
         currentRaceNumber++;
 
       } catch (e: any) {
@@ -719,15 +719,15 @@ export default function ScoreParser() {
               });
           } else {
               const errorResult: LocalExtractedData = {
-                  imageUrl: '',
                   imageObjectURL: URL.createObjectURL(file),
                   filename: file.name,
                   raceNumber: raceForThisImage,
                   data: [],
               };
               batchExtractedResults.push(errorResult);
-              processedCount++;
-               currentRaceNumber++;
+              count++;
+              setProcessedCount(count);
+              currentRaceNumber++;
               toast({
                   title: `Failed to process '${file.name}'`,
                   description: e.message || 'An unknown error occurred.',
@@ -736,7 +736,7 @@ export default function ScoreParser() {
           }
       }
       
-      setProgress((processedCount / images.length) * 100);
+      setProgress((count / images.length) * 100);
     }
     
     // Batch state updates
@@ -824,6 +824,7 @@ export default function ScoreParser() {
     setImages([]);
     setError(null);
     setProgress(0);
+    setProcessedCount(0);
     setNextRaceNumber(1);
     setPlayerNames('');
     setShockLog({});
@@ -838,14 +839,12 @@ export default function ScoreParser() {
 
   const handleRaceNameChange = (raceNumberToUpdate: number, newRaceName: string) => {
     setLocalExtractedData(currentData => {
-        if (!Array.isArray(currentData)) return [];
-        const newData = currentData.map(item => {
-            if (item.raceNumber === raceNumberToUpdate) {
-                return { ...item, raceName: newRaceName };
-            }
-            return item;
-        });
-        return newData;
+        const dataCopy = JSON.parse(JSON.stringify(currentData));
+        const raceToUpdate = dataCopy.find((item: ExtractedData) => item.raceNumber === raceNumberToUpdate);
+        if (raceToUpdate) {
+            raceToUpdate.raceName = newRaceName;
+        }
+        return dataCopy;
     });
   };
 
