@@ -79,6 +79,7 @@ import { Label } from '../ui/label';
 import { RACE_TRACKS } from '@/lib/race-tracks';
 import Header from './header';
 import { useResultsStore } from '@/lib/store';
+import { Switch } from '../ui/switch';
 
 
 type ImageQueueItem = {
@@ -93,6 +94,8 @@ type Usage = {
   count: number;
   timestamp: number;
 };
+
+type UploadMode = 'summary' | 'race-by-race';
 
 
 const RANK_TO_SCORE: { [key: string]: number } = {
@@ -114,6 +117,7 @@ const sumRanks = (arr: (string|null)[]) => arr.reduce((acc: number, rank) => acc
 export default function ScoreParser() {
  const [images, setImages] = useState<File[]>([]);
  const [playerNames, setPlayerNames] = useState('');
+ const [uploadMode, setUploadMode] = useState<UploadMode>('race-by-race');
  const { 
     mergedData, setMergedData, 
     shockLog, setShockLog,
@@ -175,19 +179,33 @@ export default function ScoreParser() {
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (files) {
-      const fileArray = Array.from(files).slice(0, 12 - (nextRaceNumber - 1));
-      if (files.length > 12) {
-        toast({
-          title: 'Too many files',
-          description: 'You can upload a maximum of 12 images in total.',
-          variant: 'destructive',
-        });
-      }
-      setError(null);
-      setImages(fileArray);
+    if (!files) return;
+
+    setError(null);
+    const newFiles = Array.from(files);
+
+    if (uploadMode === 'summary') {
+        if (newFiles.length > 1) {
+            toast({ title: 'Summary Mode', description: 'Only one image can be uploaded in summary mode.', variant: 'destructive' });
+        }
+        setImages(newFiles.slice(0, 1));
+    } else { // race-by-race
+        const totalAfterAdd = images.length + newFiles.length;
+        const totalAllowed = 12 - (nextRaceNumber - 1);
+
+        if (totalAfterAdd > totalAllowed) {
+            toast({
+                title: 'Too many files',
+                description: `You can only add ${totalAllowed - images.length} more images.`,
+                variant: 'destructive',
+            });
+            const allowedNewFiles = newFiles.slice(0, totalAllowed - images.length);
+            setImages(prev => [...prev, ...allowedNewFiles]);
+        } else {
+            setImages(prev => [...prev, ...newFiles]);
+        }
     }
-  };
+};
 
   const normalizePlayerName = (name: string): string => {
     if (!name) return '';
@@ -558,7 +576,7 @@ export default function ScoreParser() {
     };
     
     // --- SINGLE IMAGE (SUMMARY TABLE) LOGIC ---
-    if (images.length === 1) {
+    if (uploadMode === 'summary') {
         const file = images[0];
         try {
             const url = await readFileAsDataURL(file);
@@ -891,17 +909,36 @@ export default function ScoreParser() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><UploadCloud /> 1. Upload Images</CardTitle>
-                <CardDescription>Upload a single summary image, or up to 12 race images. Usage: {usage.count} images.</CardDescription>
+                <CardDescription>Upload a single summary image or multiple race images. Usage: {usage.count} images.</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="flex items-center space-x-2 mb-4">
+                  <Label htmlFor="upload-mode">Race-by-Race</Label>
+                  <Switch
+                    id="upload-mode"
+                    checked={uploadMode === 'summary'}
+                    onCheckedChange={(checked) => {
+                      setUploadMode(checked ? 'summary' : 'race-by-race');
+                      setImages([]); // Clear selection when changing mode
+                    }}
+                  />
+                  <Label htmlFor="upload-mode">Summary</Label>
+                </div>
+
                 <div className="flex flex-col items-center justify-center w-full">
                     <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-secondary/50 transition-colors">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
                         <FileUp className="w-10 h-10 mb-3 text-muted-foreground" />
                         <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                        <p className="text-xs text-muted-foreground">PNG, JPG, or WEBP</p>
+                        <p className="text-xs text-muted-foreground">
+                            {uploadMode === 'summary' ? 'Upload a single summary image' : 'Upload up to 12 race images'}
+                        </p>
                       </div>
-                      <input id="dropzone-file" type="file" className="hidden" onChange={handleImageChange} accept="image/png, image/jpeg, image/webp" multiple disabled={nextRaceNumber > 12} />
+                      <input id="dropzone-file" type="file" className="hidden" 
+                        onChange={handleImageChange} 
+                        accept="image/png, image/jpeg, image/webp" 
+                        multiple={uploadMode === 'race-by-race'}
+                        disabled={nextRaceNumber > 12} />
                     </label>
                   </div>
                   {nextRaceNumber > 12 && <p className='text-sm text-center text-destructive mt-2'>Maximum of 12 races reached.</p>}
