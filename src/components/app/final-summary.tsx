@@ -1,13 +1,16 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useResultsStore } from '@/lib/store';
 import type { Player } from '@/ai/types';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Medal } from 'lucide-react';
+import { Medal, ImageDown, ClipboardCopy } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import html2canvas from 'html2canvas';
+import { useToast } from '@/hooks/use-toast';
 
 
 const getRankMedal = (rank: string | null) => {
@@ -23,6 +26,8 @@ const getRankMedal = (rank: string | null) => {
 const FinalSummary = () => {
     const { mergedData } = useResultsStore();
     const data = Object.values(mergedData) as Player[];
+    const printRef = useRef<HTMLDivElement>(null);
+    const { toast } = useToast();
 
     const groupedData = useMemo(() => {
         const validPlayers = data.filter(player => player.isValid);
@@ -72,6 +77,55 @@ const FinalSummary = () => {
 
     const today = format(new Date(), 'MMMM d, yyyy');
 
+    const downloadAsPng = async () => {
+      const elementToCapture = printRef.current;
+      if (!elementToCapture) return;
+
+      const backgroundColorHsl = getComputedStyle(document.documentElement).getPropertyValue('--card').trim();
+      
+      const canvas = await html2canvas(elementToCapture, {
+        scale: 2,
+        backgroundColor: `hsl(${backgroundColorHsl})`,
+        useCORS: true,
+        allowTaint: true,
+      });
+
+      const data = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = data;
+      link.download = 'final-results.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    const copyToClipboard = () => {
+        if (!winningTeam || !losingTeam) return;
+
+        const formatTeam = (team: { name: string; players: Player[] }) => {
+            const teamName = team.name.split(' (')[0].trim();
+            const playersText = team.players.map(p => `${p.playerName} ${p.total}`).join('\n');
+            return `${teamName}\n${playersText}`;
+        };
+
+        const textToCopy = `${formatTeam(winningTeam)}\n\n${formatTeam(losingTeam)}`;
+        
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({
+                title: 'Resultados Copiados',
+                description: 'La lista de resultados ha sido copiada al portapapeles.',
+            });
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'No se pudieron copiar los resultados.',
+            });
+        });
+    };
+
+
     if (data.length === 0) {
         return (
             <Card className="max-w-2xl mx-auto">
@@ -86,9 +140,21 @@ const FinalSummary = () => {
     }
     
     return (
-        <Card className="max-w-2xl mx-auto bg-card border-border">
+        <Card className="max-w-2xl mx-auto bg-card border-border" ref={printRef}>
             <CardHeader className="text-center">
-                <CardDescription>{today}</CardDescription>
+                 <div className="flex justify-between items-center">
+                    <CardDescription>{today}</CardDescription>
+                    <div className='flex items-center gap-2'>
+                        <Button variant="outline" size="icon" onClick={downloadAsPng}>
+                            <ImageDown className="h-4 w-4" />
+                            <span className="sr-only">Create PNG</span>
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={copyToClipboard}>
+                            <ClipboardCopy className="h-4 w-4" />
+                            <span className="sr-only">Copy Results</span>
+                        </Button>
+                    </div>
+                </div>
             </CardHeader>
             <CardContent className="p-6">
                 {/* Score Summary */}
