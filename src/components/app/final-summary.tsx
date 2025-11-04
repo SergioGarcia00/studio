@@ -61,7 +61,7 @@ const FinalSummary = () => {
     }
     
     return (
-        <div className="bg-gray-900/50 p-8 rounded-lg max-w-4xl mx-auto flex flex-col items-center">
+        <div className="bg-gray-900 p-8 rounded-lg max-w-4xl mx-auto flex flex-col items-center">
             {/* Header */}
             <div className="w-full flex justify-between items-center text-gray-400 mb-8">
                 <div className="flex items-center gap-2">
@@ -84,22 +84,18 @@ const FinalSummary = () => {
                 {/* Player List */}
                 <div className="flex flex-col text-2xl">
                     {teamA?.players.map((player, index) => (
-                        <div key={index} className="flex justify-start items-baseline py-1 text-blue-400 gap-4">
-                            <span className="font-medium w-40 truncate">{player.playerName}</span>
-                            <div className="flex items-baseline gap-4">
-                                <span className="font-mono">{player.total}</span>
-                                <span className="text-xl text-gray-400 w-12 text-right">{player.rank}</span>
-                            </div>
+                        <div key={index} className="flex justify-between items-baseline py-1 text-blue-400 gap-4">
+                            <span className="font-medium w-40 truncate text-left">{player.playerName}</span>
+                            <span className="font-mono w-16 text-right">{player.total}</span>
+                            <span className="text-xl text-gray-400 w-16 text-right">{player.rank}</span>
                         </div>
                     ))}
                     <div className='h-8'></div>
                      {teamB?.players.map((player, index) => (
-                        <div key={index} className="flex justify-start items-baseline py-1 text-gray-300 gap-4">
-                            <span className="font-medium w-40 truncate">{player.playerName}</span>
-                             <div className="flex items-baseline gap-4">
-                                <span className="font-mono">{player.total}</span>
-                                <span className="text-xl text-gray-400 w-12 text-right">{player.rank}</span>
-                            </div>
+                        <div key={index} className="flex justify-between items-baseline py-1 text-gray-300 gap-4">
+                            <span className="font-medium w-40 truncate text-left">{player.playerName}</span>
+                            <span className="font-mono w-16 text-right">{player.total}</span>
+                            <span className="text-xl text-gray-400 w-16 text-right">{player.rank}</span>
                         </div>
                     ))}
                 </div>
