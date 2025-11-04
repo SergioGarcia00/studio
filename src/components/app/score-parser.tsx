@@ -203,7 +203,7 @@ export default function ScoreParser() {
             const allowedNewFiles = newFiles.slice(0, totalAllowed - images.length);
             setImages(prev => [...prev, ...allowedNewFiles]);
         } else {
-            setImages(prev => [...prev, ...newFiles]);
+            setImages(prev => [...prev, ...allowedNewFiles]);
         }
     }
 };
@@ -736,7 +736,7 @@ const handleRemoveImage = (indexToRemove: number) => {
         
         processedImageCount++;
         setProcessedCount(processedImageCount);
-        currentRaceNumber++;
+        // Do not increment race number here, will do it after deduplication
 
       } catch (e: any) {
           console.error(`Failed to process image ${file.name}:`, e);
@@ -756,7 +756,7 @@ const handleRemoveImage = (indexToRemove: number) => {
               batchExtractedResults.push(errorResult);
               processedImageCount++;
               setProcessedCount(processedImageCount);
-              currentRaceNumber++;
+              // currentRaceNumber++; Do not increment here
               toast({
                   title: `Failed to process '${file.name}'`,
                   description: e.message || 'An unknown error occurred.',
@@ -768,14 +768,55 @@ const handleRemoveImage = (indexToRemove: number) => {
       setProgress((processedImageCount / images.length) * 100);
     }
     
-    // Batch state updates
-    if (batchExtractedResults.length > 0) {
-        batchExtractedResults.sort((a,b) => a.raceNumber - b.raceNumber);
+    // --- DEDUPLICATION LOGIC ---
+    const uniqueResults: LocalExtractedData[] = [];
+    const existingSignatures = new Set(
+        localExtractedData.map(res => {
+            const sortedPlayers = [...res.data].sort((a,b) => a.playerName.localeCompare(b.playerName));
+            return sortedPlayers.map(p => `${p.playerName}:${p.score}`).join(',');
+        })
+    );
 
-        setLocalExtractedData(prev => [...prev, ...batchExtractedResults].sort((a, b) => a.raceNumber - b.raceNumber));
+    for (const result of batchExtractedResults) {
+        if (result.data.length === 0) {
+            uniqueResults.push(result); // Keep failed results for review
+            continue;
+        }
+        const sortedPlayers = [...result.data].sort((a, b) => a.playerName.localeCompare(b.playerName));
+        const signature = sortedPlayers.map(p => `${p.playerName}:${p.score}`).join(',');
+
+        if (!existingSignatures.has(signature)) {
+            uniqueResults.push(result);
+            existingSignatures.add(signature);
+        }
+    }
+    
+    const duplicatesFound = batchExtractedResults.length - uniqueResults.length;
+    if (duplicatesFound > 0) {
+        toast({
+            title: 'Duplicate Races Found',
+            description: `${duplicatesFound} duplicate race(s) were automatically removed.`,
+        });
+    }
+
+    // Assign correct race numbers to the unique new results
+    let raceNumberCounter = nextRaceNumber;
+    const finalUniqueResults = uniqueResults.map(res => {
+        if(res.data.length > 0) { // Don't assign a race number to failed extractions
+            res.raceNumber = raceNumberCounter++;
+        }
+        return res;
+    });
+
+
+    // Batch state updates
+    if (finalUniqueResults.length > 0) {
+        finalUniqueResults.sort((a,b) => a.raceNumber - b.raceNumber);
+
+        setLocalExtractedData(prev => [...prev, ...finalUniqueResults].sort((a, b) => a.raceNumber - b.raceNumber));
 
         let newMergedData = useResultsStore.getState().mergedData;
-        for (const result of batchExtractedResults) {
+        for (const result of finalUniqueResults) {
           if (result.data.length > 0) {
             newMergedData = updateMergedDataWithRace(newMergedData, result.data, result.raceNumber, masterPlayerList);
           }
@@ -783,7 +824,7 @@ const handleRemoveImage = (indexToRemove: number) => {
         setMergedData(newMergedData);
     }
 
-    setNextRaceNumber(currentRaceNumber);
+    setNextRaceNumber(raceNumberCounter);
 
     toast({
       title: 'Extraction Complete',
