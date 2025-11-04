@@ -40,15 +40,15 @@ const rankToScore = (rank: string | null): number => {
 
 const getRankClass = (rank: string | null) => {
     if (!rank) return '';
-    if (rank === '1st') return 'bg-yellow-400/70 text-black font-bold';
-    if (rank === '2nd') return 'bg-slate-300/70 text-black font-bold';
-    if (rank === '3rd') return 'bg-orange-400/70 text-black font-bold';
+    if (rank === '1st') return 'bg-primary text-primary-foreground font-bold';
+    if (rank === '2nd') return 'bg-primary/80 text-primary-foreground font-bold';
+    if (rank === '3rd') return 'bg-primary/60 text-primary-foreground font-bold';
     return '';
 };
 
 const ShockIcon = ({ className }: { className?: string }) => (
   <Zap
-    className={cn("h-5 w-5 text-yellow-400 fill-yellow-400 mx-auto", className)}
+    className={cn("h-5 w-5 text-primary fill-primary mx-auto", className)}
   />
 );
 
@@ -284,9 +284,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
           {hasData ? (
             Object.entries(groupedData).map(([team, players], tIndex) => (
               <React.Fragment key={team}>
-                <TableRow className={cn('font-bold text-lg',
-                    team.toLowerCase().includes('blue') ? 'bg-blue-900/50' : team.toLowerCase().includes('red') ? 'bg-red-900/50' : 'bg-muted/50'
-                )}>
+                <TableRow className='font-bold text-lg bg-muted/50'>
                     <TableCell className="sticky left-0">
                         {team.split(' (')[0]}
                     </TableCell>
@@ -296,7 +294,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                   <TableRow key={pIndex}>
                     <TableCell className="font-medium sticky left-0 bg-card/95">{player.playerName}</TableCell>
                     {player.ranks.slice(0,4).map((rank, sIndex) => (
-                        <TableCell key={sIndex} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
+                        <TableCell key={sIndex} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-destructive/50')}>
                           <div className='flex items-center justify-center gap-1'>
                             {rank ?? '12th'}
                             {shockLog[sIndex + 1] === player.playerName && <ShockIcon className='h-3 w-3' />}
@@ -305,7 +303,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[3] !== null ? player.gp1 : '-'}</TableCell>
                     {player.ranks.slice(4,8).map((rank, sIndex) => (
-                        <TableCell key={sIndex+4} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
+                        <TableCell key={sIndex+4} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-destructive/50')}>
                             <div className='flex items-center justify-center gap-1'>
                               {rank ?? '12th'}
                               {shockLog[sIndex + 5] === player.playerName && <ShockIcon className='h-3 w-3' />}
@@ -314,7 +312,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[7] !== null ? player.gp2 : '-'}</TableCell>
                      {player.ranks.slice(8,12).map((rank, sIndex) => (
-                        <TableCell key={sIndex+8} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
+                        <TableCell key={sIndex+8} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-destructive/50')}>
                             <div className='flex items-center justify-center gap-1'>
                               {rank ?? '12th'}
                               {shockLog[sIndex + 9] === player.playerName && <ShockIcon className='h-3 w-3' />}
@@ -346,14 +344,14 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     </TableRow>
                     <TableRow className='font-bold border-y'>
                         <TableCell className="sticky left-0 bg-card/95">Diferencia</TableCell>
-                        {teamStats.diff.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className={cn("text-center font-mono", s > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
-                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp1 > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp1)}</TableCell>
-                        {teamStats.diff.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className={cn("text-center font-mono", s > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
-                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp2 > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp2)}</TableCell>
-                        {teamStats.diff.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className={cn("text-center font-mono", s > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
-                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp3 > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp3)}</TableCell>
+                        {teamStats.diff.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className={cn("text-center font-mono", s > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
+                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp1 > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp1)}</TableCell>
+                        {teamStats.diff.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className={cn("text-center font-mono", s > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
+                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp2 > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp2)}</TableCell>
+                        {teamStats.diff.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className={cn("text-center font-mono", s > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
+                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp3 > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp3)}</TableCell>
                         <TableCell></TableCell>
-                        <TableCell className={cn("text-center font-mono", teamStats.diff.total > 0 ? 'text-blue-500' : 'text-red-500')}>{Math.abs(teamStats.diff.total)}</TableCell>
+                        <TableCell className={cn("text-center font-mono", teamStats.diff.total > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(teamStats.diff.total)}</TableCell>
                     </TableRow>
                     {redTeamName && (
                     <TableRow className='font-bold border-y'>
