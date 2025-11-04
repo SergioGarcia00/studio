@@ -736,8 +736,11 @@ export default function ScoreParser() {
 
   const handleRaceNameChange = (originalIndex: number, newRaceName: string) => {
     setExtractedData(currentData => {
-        const newData = [...currentData];
-        newData[originalIndex].raceName = newRaceName;
+        if (!Array.isArray(currentData)) return [];
+        const newData = [...currentData]; // Create a shallow copy
+        const itemToUpdate = { ...newData[originalIndex] }; // Create a shallow copy of the object
+        itemToUpdate.raceName = newRaceName;
+        newData[originalIndex] = itemToUpdate;
         return newData;
     });
   };
@@ -809,7 +812,7 @@ export default function ScoreParser() {
                     value={playerNames}
                     onChange={(e) => setPlayerNames(e.target.value)}
                     rows={4}
-                    disabled={isLoading || extractedData.length > 0}
+                    disabled={isLoading || (Array.isArray(extractedData) && extractedData.length > 0)}
                     />
                 </CardContent>
             </Card>
