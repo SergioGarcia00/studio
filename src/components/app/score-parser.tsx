@@ -25,7 +25,6 @@ import {
  UploadCloud,
  List,
  Settings,
- PanelLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -50,17 +49,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarFooter,
-  SidebarInset,
-  SidebarTrigger
-} from '@/components/ui/sidebar';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
@@ -774,37 +762,32 @@ export default function ScoreParser() {
   const isDemoData = useMemo(() => extractedData.length > 0 && extractedData.every(d => d.imageUrl === ''), [extractedData]);
 
   return (
-    <>
-      <Sidebar>
-        <SidebarContent>
-          <SidebarHeader>
-              <div className="flex items-center gap-3">
-                <PanelLeft className="h-7 w-7 text-primary" />
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                  ScoreParser
-                </h1>
-              </div>
-              <p className="text-sm text-muted-foreground pt-2">Usage today: {usage.count} images</p>
-          </SidebarHeader>
-
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <div className="w-full space-y-4 p-2">
-                  <h3 className="font-semibold flex items-center gap-2"><UploadCloud /> 1. Upload Races</h3>
-                  <div className="flex flex-col items-center justify-center w-full">
+    <div className="flex flex-col h-full">
+      <Header />
+      <main className="flex-1 overflow-auto p-4 md:p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column for Controls */}
+          <div className="lg:col-span-1 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><UploadCloud /> 1. Upload Races</CardTitle>
+                <CardDescription>Upload up to 12 race result images. Usage today: {usage.count} images.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center w-full">
                     <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-secondary/50 transition-colors">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
                         <FileUp className="w-10 h-10 mb-3 text-muted-foreground" />
-                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span></p>
+                        <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
                         <p className="text-xs text-muted-foreground">PNG, JPG, or WEBP</p>
                       </div>
                       <input id="dropzone-file" type="file" className="hidden" onChange={handleImageChange} accept="image/png, image/jpeg, image/webp" multiple disabled={nextRaceNumber > 12} />
                     </label>
                   </div>
-                  {nextRaceNumber > 12 && <p className='text-sm text-center text-destructive'>Maximum of 12 races reached.</p>}
+                  {nextRaceNumber > 12 && <p className='text-sm text-center text-destructive mt-2'>Maximum of 12 races reached.</p>}
 
                   {images.length > 0 && !isLoading && (
-                    <div className='grid grid-cols-2 md:grid-cols-3 gap-2'>
+                    <div className='grid grid-cols-3 md:grid-cols-4 lg:grid-cols-3 gap-2 mt-4'>
                         {images.map((file, index) => (
                         <div key={index} className="relative aspect-video w-full">
                             <Image src={URL.createObjectURL(file)} alt={`Uploaded scoreboard ${index+1}`} fill className="rounded-lg object-contain" />
@@ -812,25 +795,26 @@ export default function ScoreParser() {
                         ))}
                     </div>
                   )}
-              </div>
-            </SidebarMenuItem>
-            
-            <SidebarMenuItem>
-              <div className="w-full space-y-4 p-2">
-                <h3 className="font-semibold flex items-center gap-2"><Users /> Optional: Player Names</h3>
-                <Textarea
-                  placeholder="e.g. Player 1, Player 2, Player 3, ..."
-                  value={playerNames}
-                  onChange={(e) => setPlayerNames(e.target.value)}
-                  rows={4}
-                  disabled={isLoading || extractedData.length > 0}
-                />
-              </div>
-            </SidebarMenuItem>
-          </SidebarMenu>
+              </CardContent>
+            </Card>
 
-          <SidebarFooter className='mt-auto'>
-              <div className="space-y-2 p-2">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Users /> Optional: Player Names</CardTitle>
+                    <CardDescription>Provide a comma-separated list of player names to improve OCR accuracy.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Textarea
+                    placeholder="e.g. Player 1, Player 2, Player 3, ..."
+                    value={playerNames}
+                    onChange={(e) => setPlayerNames(e.target.value)}
+                    rows={4}
+                    disabled={isLoading || extractedData.length > 0}
+                    />
+                </CardContent>
+            </Card>
+            
+            <div className="space-y-2">
                 <Button onClick={handleExtractData} disabled={images.length === 0 || isLoading} className="w-full text-lg py-6">
                   {isLoading && images.length > 0 ? (
                     <>
@@ -857,242 +841,240 @@ export default function ScoreParser() {
                       </Button>
                   )}
                 </div>
-              </div>
-          </SidebarFooter>
-        </SidebarContent>
+            </div>
+          </div>
 
-        <SidebarInset>
-            <Header />
-            <main className="flex-1 p-4 md:p-8">
-                {isLoading && (
-                    <Card className="shadow-lg min-h-[400px]">
-                        <CardHeader>
-                            <CardTitle>Processing...</CardTitle>
-                            <CardDescription>Please wait a moment.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col items-center justify-center pt-10">
-                            <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
-                            {images.length > 0 ? (
-                            <>
-                                <p className='text-muted-foreground mb-4'>Processing race {Math.min(Math.floor(progress / (100 / images.length)) + nextRaceNumber, 12)} of 12... ({Math.round(progress)}%)</p>
-                                <Progress value={progress} className="w-3/4" />
-                            </>
-                            ) : (
-                            <p className='text-muted-foreground'>Generating demo data...</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-                {error && !isLoading && (
-                <Alert variant="destructive">
-                    {error.includes('overloaded') ? <ServerCrash className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                    <AlertTitle>Extraction Failed</AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
-                </Alert>
-                )}
-                {extractedData.length > 0 && !isLoading && (
-                <Card className="shadow-lg">
-                    <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                          <CardTitle className='flex items-center gap-2'><List /> 3. Review &amp; Download</CardTitle>
-                          <CardDescription>Review extracted data and download or preview results.</CardDescription>
-                        </div>
-                        <div className='flex items-center gap-2 flex-wrap'>
-                          <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" disabled={allPlayers.length === 0}>
-                                        <TableIcon className="mr-2 h-4 w-4" />
-                                        Preview Results
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-7xl">
-                                    <DialogHeader className="flex-row items-center justify-between">
-                                        <DialogTitle>Race Results Preview</DialogTitle>
-                                        <div className='flex items-center gap-2'>
-                                          <Button variant="outline" onClick={() => previewRef.current?.downloadAsCsv()} disabled={allPlayers.length === 0}>
-                                              <FileDown className="mr-2 h-4 w-4" />
-                                              Export to Excel
-                                          </Button>
-                                          <Button variant="outline" onClick={() => previewRef.current?.downloadAsPng()} disabled={allPlayers.length === 0}>
-                                              <ImageDown className="mr-2 h-4 w-4" />
-                                              Create PNG
-                                          </Button>
-                                        </div>
-                                    </DialogHeader>
-                                    <RaceResultsPreview ref={previewRef} data={allPlayers as Player[]} shockLog={shockLog} />
-                                </DialogContent>
-                            </Dialog>
-                            <Button onClick={handleClearResults} variant="destructive" size="icon">
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Clear Results</span>
+          {/* Right Column for Results */}
+          <div className="lg:col-span-2">
+            {isLoading && (
+              <Card className="shadow-lg min-h-[400px]">
+                <CardHeader>
+                  <CardTitle>Processing...</CardTitle>
+                  <CardDescription>Please wait a moment.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center pt-10">
+                  <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
+                  {images.length > 0 ? (
+                    <>
+                      <p className='text-muted-foreground mb-4'>Processing race {Math.min(Math.floor(progress / (100 / images.length)) + nextRaceNumber, 12)} of 12... ({Math.round(progress)}%)</p>
+                      <Progress value={progress} className="w-3/4" />
+                    </>
+                  ) : (
+                    <p className='text-muted-foreground'>Generating demo data...</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            {error && !isLoading && (
+              <Alert variant="destructive">
+                {error.includes('overloaded') ? <ServerCrash className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                <AlertTitle>Extraction Failed</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {extractedData.length > 0 && !isLoading && (
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <CardTitle className='flex items-center gap-2'><List /> 3. Review &amp; Download</CardTitle>
+                      <CardDescription>Review extracted data and download or preview results.</CardDescription>
+                    </div>
+                    <div className='flex items-center gap-2 flex-wrap'>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" disabled={allPlayers.length === 0}>
+                            <TableIcon className="mr-2 h-4 w-4" />
+                            Preview Results
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-7xl">
+                          <DialogHeader className="flex-row items-center justify-between">
+                            <DialogTitle>Race Results Preview</DialogTitle>
+                            <div className='flex items-center gap-2'>
+                              <Button variant="outline" onClick={() => previewRef.current?.downloadAsCsv()} disabled={allPlayers.length === 0}>
+                                <FileDown className="mr-2 h-4 w-4" />
+                                Export to Excel
+                              </Button>
+                              <Button variant="outline" onClick={() => previewRef.current?.downloadAsPng()} disabled={allPlayers.length === 0}>
+                                <ImageDown className="mr-2 h-4 w-4" />
+                                Create PNG
+                              </Button>
+                            </div>
+                          </DialogHeader>
+                          <RaceResultsPreview ref={previewRef} data={allPlayers as Player[]} shockLog={shockLog} />
+                        </DialogContent>
+                      </Dialog>
+                      <Button onClick={handleClearResults} variant="destructive" size="icon">
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Clear Results</span>
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className='flex justify-end mb-2'>
+                    <Button onClick={handleUpdateOrder} size="sm" variant="outline">
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Update Order
+                    </Button>
+                  </div>
+                  <Accordion type="multiple" className="w-full" defaultValue={extractedData.map((_, i) => `item-${i}`)}>
+                    {extractedData.map((result, index) => (
+                      <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
+                        <AccordionTrigger>
+                          <div className='flex items-center justify-between w-full pr-4'>
+                            <div className='flex items-center gap-4'>
+                              {result.imageUrl ? (
+                                <div className="relative aspect-video w-24">
+                                  <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
+                                </div>
+                              ) : (
+                                <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
+                                  <TestTube2 className="h-8 w-8 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div className='text-left'>
+                                <p className='font-semibold'>
+                                  {`Race ${result.raceNumber}${result.raceName ? `: ${result.raceName}` : ''}`}
+                                </p>
+                                <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
+                              </div>
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className='flex justify-end mb-2'>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadSingleRaceCsv(result);
+                              }}
+                              aria-label="Download CSV for this race"
+                            >
+                              <Download className='h-4 w-4 mr-2' />
+                              Download Race CSV
                             </Button>
-                        </div>
-                    </div>
-                    </CardHeader>
-                    <CardContent>
-                    <div className='flex justify-end mb-2'>
-                        <Button onClick={handleUpdateOrder} size="sm" variant="outline">
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Update Order
-                        </Button>
-                    </div>
-                    <Accordion type="multiple" className="w-full" defaultValue={extractedData.map((_, i) => `item-${i}`)}>
-                        {extractedData.map((result, index) => (
-                        <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
-                            <AccordionTrigger>
-                                <div className='flex items-center justify-between w-full pr-4'>
-                                <div className='flex items-center gap-4'>
-                                    {result.imageUrl ? (
-                                        <div className="relative aspect-video w-24">
-                                            <Image src={result.imageUrl} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
-                                        </div>
-                                    ) : (
-                                        <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
-                                        <TestTube2 className="h-8 w-8 text-muted-foreground" />
-                                        </div>
-                                    )}
-                                    <div className='text-left'>
-                                        <p className='font-semibold'>
-                                            {`Race ${result.raceNumber}${result.raceName ? `: ${result.raceName}` : ''}`}
-                                        </p>
-                                        <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
-                                    </div>
-                                </div>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className='flex justify-end mb-2'>
-                                  <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDownloadSingleRaceCsv(result);
-                                      }}
-                                      aria-label="Download CSV for this race"
-                                    >
-                                      <Download className='h-4 w-4 mr-2' />
-                                      Download Race CSV
+                          </div>
+                          <div className='overflow-x-auto max-h-[60vh]'>
+                            <Table>
+                              <TableHeader className='sticky top-0 bg-card'>
+                                <TableRow>
+                                  <TableHead>Player Name</TableHead>
+                                  <TableHead>Team</TableHead>
+                                  <TableHead className="text-right">Total Score</TableHead>
+                                  <TableHead className='text-right'>Race Score</TableHead>
+                                  <TableHead>Rank</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {result.data.length > 0 ? result.data.map((player, pIndex) => (
+                                  <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
+                                    <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
+                                    <TableCell>{player.team || 'N/A'}</TableCell>
+                                    <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
+                                    <TableCell className="text-right font-mono">{player.raceScore ?? 'N/A'}</TableCell>
+                                    <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
+                                  </TableRow>
+                                )) : (
+                                  <TableRow>
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                          <div className='space-y-6 mt-4 p-4 border rounded-lg'>
+                            <div className="grid gap-2">
+                              <Label>Race Name</Label>
+                              <Select
+                                value={result.raceName}
+                                onValueChange={(value) => handleRaceNameChange(index, value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a race track..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Object.entries(RACE_TRACKS).map(([abbr, fullName]) => (
+                                    <SelectItem key={abbr} value={fullName}>{fullName}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="grid gap-2">
+                              <Label>Team Pick</Label>
+                              <div className='flex items-center gap-4'>
+                                <Circle className="h-5 w-5 text-blue-500 fill-blue-500" />
+                                <Slider
+                                  value={[racePicks[result.raceNumber] === 'blue' ? 0 : racePicks[result.raceNumber] === 'none' ? 1 : 2]}
+                                  onValueChange={([val]) => handleTeamPickChange(result.raceNumber, val)}
+                                  min={0}
+                                  max={2}
+                                  step={1}
+                                  className='flex-1'
+                                />
+                                <Circle className="h-5 w-5 text-red-500 fill-red-500" />
+                              </div>
+                            </div>
+
+                            <div className='flex items-center justify-end gap-2 border-t pt-4'>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Zap className="mr-2 h-4 w-4" />
+                                    {shockLog[result.raceNumber] ? `Shock: ${shockLog[result.raceNumber]}` : 'Mark Shock'}
+                                    <ChevronDown className="ml-2 h-4 w-4" />
                                   </Button>
-                                </div>
-                              <div className='overflow-x-auto max-h-[60vh]'>
-                                <Table>
-                                  <TableHeader className='sticky top-0 bg-card'>
-                                    <TableRow>
-                                      <TableHead>Player Name</TableHead>
-                                      <TableHead>Team</TableHead>
-                                      <TableHead className="text-right">Total Score</TableHead>
-                                      <TableHead className='text-right'>Race Score</TableHead>
-                                      <TableHead>Rank</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {result.data.length > 0 ? result.data.map((player, pIndex) => (
-                                      <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
-                                        <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
-                                        <TableCell>{player.team || 'N/A'}</TableCell>
-                                        <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
-                                        <TableCell className="text-right font-mono">{player.raceScore ?? 'N/A'}</TableCell>
-                                        <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
-                                      </TableRow>
-                                    )) : (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
-                                        </TableRow>
-                                    )}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                              <div className='space-y-6 mt-4 p-4 border rounded-lg'>
-                                <div className="grid gap-2">
-                                  <Label>Race Name</Label>
-                                  <Select
-                                    value={result.raceName}
-                                    onValueChange={(value) => handleRaceNameChange(index, value)}
-                                  >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a race track..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {Object.entries(RACE_TRACKS).map(([abbr, fullName]) => (
-                                            <SelectItem key={abbr} value={fullName}>{fullName}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-
-                                <div className="grid gap-2">
-                                  <Label>Team Pick</Label>
-                                  <div className='flex items-center gap-4'>
-                                    <Circle className="h-5 w-5 text-blue-500 fill-blue-500" />
-                                    <Slider
-                                        value={[racePicks[result.raceNumber] === 'blue' ? 0 : racePicks[result.raceNumber] === 'none' ? 1 : 2]}
-                                        onValueChange={([val]) => handleTeamPickChange(result.raceNumber, val)}
-                                        min={0}
-                                        max={2}
-                                        step={1}
-                                        className='flex-1'
-                                    />
-                                    <Circle className="h-5 w-5 text-red-500 fill-red-500" />
-                                  </div>
-                                </div>
-
-                                <div className='flex items-center justify-end gap-2 border-t pt-4'>
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" size="sm">
-                                          <Zap className="mr-2 h-4 w-4" />
-                                          {shockLog[result.raceNumber] ? `Shock: ${shockLog[result.raceNumber]}` : 'Mark Shock'}
-                                          <ChevronDown className="ml-2 h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => handleToggleShock(result.raceNumber, shockLog[result.raceNumber])}>
-                                          Remove Shock
-                                        </DropdownMenuItem>
-                                        {allPlayers.map(p => (
-                                          <DropdownMenuItem key={p.playerName} onClick={() => handleToggleShock(result.raceNumber, p.playerName)}>
-                                            {p.playerName}
-                                          </DropdownMenuItem>
-                                        ))}
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                    </Accordion>
-                    </CardContent>
-                </Card>
-                )}
-                {!isLoading && extractedData.length === 0 && (
-                <Card className="flex flex-col items-center justify-center h-full min-h-[400px] border-dashed shadow-inner">
-                    <CardContent className="text-center p-6">
-                    {images.length > 0 ? 
-                        <>
-                            <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
-                            <h3 className="mt-4 text-xl font-semibold">Ready to Extract</h3>
-                            <p className="mt-2 text-base text-muted-foreground">
-                                Click the "Extract Data" button to begin.
-                            </p>
-                        </>
-                        :
-                        <>
-                            <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
-                            <h3 className="mt-4 text-xl font-semibold">Results will appear here</h3>
-                            <p className="mt-2 text-base text-muted-foreground">
-                                Upload race images and click "Extract Data" to see the magic.
-                            </p>
-                        </>
-                    }
-                    </CardContent>
-                </Card>
-                )}
-            </main>
-        </SidebarInset>
-      </Sidebar>
-    </>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleToggleShock(result.raceNumber, shockLog[result.raceNumber])}>
+                                    Remove Shock
+                                  </DropdownMenuItem>
+                                  {allPlayers.map(p => (
+                                    <DropdownMenuItem key={p.playerName} onClick={() => handleToggleShock(result.raceNumber, p.playerName)}>
+                                      {p.playerName}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </CardContent>
+              </Card>
+            )}
+            {!isLoading && extractedData.length === 0 && (
+              <Card className="flex flex-col items-center justify-center h-full min-h-[400px] border-dashed shadow-inner">
+                <CardContent className="text-center p-6">
+                  {images.length > 0 ?
+                    <>
+                      <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
+                      <h3 className="mt-4 text-xl font-semibold">Ready to Extract</h3>
+                      <p className="mt-2 text-base text-muted-foreground">
+                        Click the "Extract Data" button to begin.
+                      </p>
+                    </>
+                    :
+                    <>
+                      <FileImage className="mx-auto h-16 w-16 text-muted-foreground" />
+                      <h3 className="mt-4 text-xl font-semibold">Results will appear here</h3>
+                      <p className="mt-2 text-base text-muted-foreground">
+                        Upload race images and click "Extract Data" to see the magic.
+                      </p>
+                    </>
+                  }
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
