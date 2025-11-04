@@ -94,17 +94,17 @@ const FinalSummary = () => {
                 {/* Score Summary */}
                 <div className="flex justify-around items-center mb-8 text-center">
                     <div className="flex flex-col items-center">
-                        <h2 className="text-2xl font-semibold text-blue-400">{winningTeam?.name.split(' (')[0].trim() || 'Team 1'}</h2>
-                        <p className="text-6xl font-bold text-blue-300">{winningScore}</p>
+                        <h2 className="text-2xl font-semibold">{winningTeam?.name.split(' (')[0].trim() || 'Team 1'}</h2>
+                        <p className="text-6xl font-bold">{winningScore}</p>
                     </div>
                     <div className="flex flex-col items-center">
-                         <p className="text-3xl font-light text-gray-400 self-center mt-8">
+                         <p className="text-3xl font-light text-muted-foreground self-center mt-8">
                             +{scoreDifference}
                         </p>
                     </div>
                     <div className="flex flex-col items-center">
-                        <h2 className="text-2xl font-semibold text-gray-400">{losingTeam?.name.split(' (')[0].trim() || 'Team 2'}</h2>
-                        <p className="text-6xl font-bold text-gray-500">{losingScore}</p>
+                        <h2 className="text-2xl font-semibold text-muted-foreground">{losingTeam?.name.split(' (')[0].trim() || 'Team 2'}</h2>
+                        <p className="text-6xl font-bold text-muted-foreground">{losingScore}</p>
                     </div>
                 </div>
 
@@ -112,7 +112,7 @@ const FinalSummary = () => {
                 <div className="grid md:grid-cols-2 gap-6">
                     {winningTeam && (
                         <div>
-                            <h3 className="text-xl font-semibold mb-2 text-blue-400 text-center">{winningTeam.name.split(' (')[0].trim()}</h3>
+                            <h3 className="text-xl font-semibold mb-2 text-center">{winningTeam.name.split(' (')[0].trim()}</h3>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="border-border">
@@ -140,7 +140,7 @@ const FinalSummary = () => {
                     )}
                     {losingTeam && (
                          <div>
-                            <h3 className="text-xl font-semibold mb-2 text-gray-400 text-center">{losingTeam.name.split(' (')[0].trim()}</h3>
+                            <h3 className="text-xl font-semibold mb-2 text-muted-foreground text-center">{losingTeam.name.split(' (')[0].trim()}</h3>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="border-border">

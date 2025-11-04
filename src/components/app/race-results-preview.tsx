@@ -40,9 +40,7 @@ const rankToScore = (rank: string | null): number => {
 
 const getRankClass = (rank: string | null) => {
     if (!rank) return '';
-    if (rank === '1st') return 'bg-primary text-primary-foreground font-bold';
-    if (rank === '2nd') return 'bg-primary/80 text-primary-foreground font-bold';
-    if (rank === '3rd') return 'bg-primary/60 text-primary-foreground font-bold';
+    if (rank === '1st' || rank === '2nd' || rank === '3rd') return 'bg-primary text-primary-foreground font-bold';
     return '';
 };
 
@@ -97,7 +95,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     
     const teamOrder = Object.keys(groups).sort((a, b) => {
         const aIsBlue = a.toLowerCase().includes('blue');
-        const bIsBlue = b.toLowerCase().includes('red');
+        const bIsBlue = b.toLowerCase().includes('blue');
         if (aIsBlue && !bIsBlue) return -1;
         if (!aIsBlue && bIsBlue) return 1;
         return 0;
