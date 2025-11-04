@@ -288,7 +288,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     team.toLowerCase().includes('blue') ? 'bg-blue-900/50' : team.toLowerCase().includes('red') ? 'bg-red-900/50' : 'bg-muted/50'
                 )}>
                     <TableCell className="sticky left-0">
-                        {team}
+                        {team.split(' (')[0]}
                     </TableCell>
                     <TableCell colSpan={16}></TableCell>
                 </TableRow>
