@@ -118,3 +118,6 @@ export type MergedRaceData = {
 export type ShockLog = {
   [raceNumber: number]: string; // player name
 }
+
+export type RacePick = 'blue' | 'red' | 'none';
+export type RacePicks = { [raceNumber: number]: RacePick };

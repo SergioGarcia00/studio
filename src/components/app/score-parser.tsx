@@ -53,7 +53,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
-import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput, RacePlayerResult, ShockLog } from '@/ai/types';
+import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput, RacePlayerResult, ShockLog, RacePicks } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -71,8 +71,6 @@ type ImageQueueItem = {
  retries: number;
 };
 
-type RacePick = 'blue' | 'red' | 'none';
-type RacePicks = { [raceNumber: number]: RacePick };
 
 type Usage = {
   count: number;
@@ -99,9 +97,12 @@ const sumRanks = (arr: (string|null)[]) => arr.reduce((acc: number, rank) => acc
 export default function ScoreParser() {
  const [images, setImages] = useState<File[]>([]);
  const [playerNames, setPlayerNames] = useState('');
- const [extractedData, setExtractedData] = useState<ExtractedData[]>([]);
- const { mergedData, setMergedData, shockLog, setShockLog } = useResultsStore();
- const [racePicks, setRacePicks] = useState<RacePicks>({});
+ const { 
+    mergedData, setMergedData, 
+    shockLog, setShockLog,
+    extractedData, setExtractedData,
+    racePicks, setRacePicks
+  } = useResultsStore();
  const [isLoading, setIsLoading] = useState(false);
  const [error, setError] = useState<string | null>(null);
  const [progress, setProgress] = useState(0);
@@ -644,12 +645,12 @@ export default function ScoreParser() {
       }
       
       if(newExtractedResult){
-          newExtractedResults.push(newExtractedResult);
+          setExtractedData(prev => [...prev, newExtractedResult]);
       }
       setProgress((processedCount / images.length) * 100);
     }
     
-    setExtractedData(prev => [...prev, ...newExtractedResults].sort((a,b) => a.raceNumber - b.raceNumber));
+    setExtractedData(prev => [...prev].sort((a,b) => a.raceNumber - b.raceNumber));
     setNextRaceNumber(currentRaceNumber);
 
     toast({

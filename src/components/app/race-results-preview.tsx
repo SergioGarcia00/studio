@@ -16,8 +16,9 @@ import React from 'react';
 import html2canvas from 'html2canvas';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Button } from '../ui/button';
-import { FileDown, ImageDown, Zap } from 'lucide-react';
+import { FileDown, ImageDown, Zap, Circle } from 'lucide-react';
 import { useResultsStore } from '@/lib/store';
+import { RACE_TRACKS } from '@/lib/race-tracks';
 
 interface RaceResultsPreviewProps {
 }
@@ -54,8 +55,23 @@ const ShockIcon = ({ className }: { className?: string }) => (
 
 export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsPreviewProps>((_, ref) => {
   const printRef = useRef<HTMLDivElement>(null);
-  const { mergedData, shockLog } = useResultsStore();
+  const { mergedData, shockLog, extractedData, racePicks } = useResultsStore();
   const data = Object.values(mergedData) as Player[];
+
+  const raceHeaders = useMemo(() => {
+    const invertedRaceTracks = Object.fromEntries(Object.entries(RACE_TRACKS).map(([k, v]) => [v, k]));
+    return Array.from({length: 12}).map((_, i) => {
+        const raceNumber = i + 1;
+        const raceInfo = extractedData.find(d => d.raceNumber === raceNumber);
+        const raceName = raceInfo?.raceName;
+        const shortName = raceName ? invertedRaceTracks[raceName] : null;
+        return {
+            fullName: raceName,
+            shortName: shortName ?? `R${raceNumber}`,
+            pick: racePicks[raceNumber]
+        }
+    });
+  }, [extractedData, racePicks]);
 
   const groupedData = useMemo(() => {
     const validPlayers = data.filter(player => player.isValid);
@@ -178,57 +194,47 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     },
     downloadAsCsv: () => {
         const csvData: any[] = [];
-        const headers = ['Player', 'R1', 'R2', 'R3', 'R4', 'GP1', 'R5', 'R6', 'R7', 'R8', 'GP2', 'R9', 'R10', 'R11', 'R12', 'GP3', 'Rank', 'Total'];
-
-        const teamEntries = Object.entries(groupedData);
-
-        teamEntries.forEach(([team, players], teamIndex) => {
-            csvData.push({Player: team}); // Team name row
-            players.forEach(p => {
-                csvData.push({
-                    Player: p.playerName,
-                    R1: rankToScore(p.ranks[0]), R2: rankToScore(p.ranks[1]), R3: rankToScore(p.ranks[2]), R4: rankToScore(p.ranks[3]),
-                    GP1: p.gp1,
-                    R5: rankToScore(p.ranks[4]), R6: rankToScore(p.ranks[5]), R7: rankToScore(p.ranks[6]), R8: rankToScore(p.ranks[7]),
-                    GP2: p.gp2,
-                    R9: rankToScore(p.ranks[8]), R10: rankToScore(p.ranks[9]), R11: rankToScore(p.ranks[10]), R12: rankToScore(p.ranks[11]),
-                    GP3: p.gp3,
-                    Rank: p.rank,
-                    Total: p.total,
-                });
-            });
-
-            if (teamIndex === 0 && teamEntries.length > 1) {
-                csvData.push({Player: ''}); // Spacer
-                const { blue, red, diff } = teamStats;
-                csvData.push({
-                    Player: 'Puntos Equipo Azul',
-                    R1: blue.raceScores[0], R2: blue.raceScores[1], R3: blue.raceScores[2], R4: blue.raceScores[3], GP1: blue.gp1,
-                    R5: blue.raceScores[4], R6: blue.raceScores[5], R7: blue.raceScores[6], R8: blue.raceScores[7], GP2: blue.gp2,
-                    R9: blue.raceScores[8], R10: blue.raceScores[9], R11: blue.raceScores[10], R12: blue.raceScores[11], GP3: blue.gp3,
-                    Total: blue.total,
-                });
-                 csvData.push({
-                    Player: 'Diferencia',
-                    R1: diff.raceScores[0], R2: diff.raceScores[1], R3: diff.raceScores[2], R4: diff.raceScores[3], GP1: diff.gp1,
-                    R5: diff.raceScores[4], R6: diff.raceScores[5], R7: diff.raceScores[6], R8: diff.raceScores[7], GP2: diff.gp2,
-                    R9: diff.raceScores[8], R10: diff.raceScores[9], R11: diff.raceScores[10], R12: diff.raceScores[11], GP3: diff.gp3,
-                    Total: diff.total,
-                });
-                if (redTeamName) {
-                  csvData.push({
-                      Player: 'Puntos Equipo Rojo',
-                      R1: red.raceScores[0], R2: red.raceScores[1], R3: red.raceScores[2], R4: red.raceScores[3], GP1: red.gp1,
-                      R5: red.raceScores[4], R6: red.raceScores[5], R7: red.raceScores[6], R8: red.raceScores[7], GP2: red.gp2,
-                      R9: red.raceScores[8], R10: red.raceScores[9], R11: red.raceScores[10], R12: red.raceScores[11], GP3: red.gp3,
-                      Total: red.total,
-                  });
-                }
-                csvData.push({Player: ''}); // Spacer
-            }
-        });
+        const headers = ['playerName', 'team', 'raceNumber', 'raceName', 'rank', 'score', 'teamPick', 'shockUsed'];
         
-        exportToCsv(csvData, 'race-summary.csv', headers);
+        const allPlayers = Object.values(mergedData);
+
+        for(let i=0; i<12; i++){
+            const raceNumber = i + 1;
+            const raceInfo = extractedData.find(d => d.raceNumber === raceNumber);
+            if (!raceInfo) continue;
+
+            const teamPick = racePicks[raceNumber] || 'none';
+            const shockedPlayerInRace = shockLog[raceNumber];
+
+            allPlayers.forEach(player => {
+                const rank = player.ranks[i];
+                if (rank === null && (player.gp1 !== null || player.gp2 !== null || player.gp3 !== null)) { // Player was in the game but DCed
+                    csvData.push({
+                        playerName: player.playerName,
+                        team: player.team,
+                        raceNumber: raceNumber,
+                        raceName: raceInfo.raceName,
+                        rank: 'N/A',
+                        score: 0,
+                        teamPick: teamPick,
+                        shockUsed: shockedPlayerInRace === player.playerName,
+                    });
+                } else if (rank !== null) {
+                    csvData.push({
+                        playerName: player.playerName,
+                        team: player.team,
+                        raceNumber: raceNumber,
+                        raceName: raceInfo.raceName,
+                        rank: rank,
+                        score: rankToScore(rank),
+                        teamPick: teamPick,
+                        shockUsed: shockedPlayerInRace === player.playerName,
+                    });
+                }
+            });
+        }
+        
+        exportToCsv(csvData, 'race-details.csv', headers);
     }
   }));
 
@@ -242,16 +248,31 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
         <TableHeader className='sticky top-0 bg-background z-10'>
           <TableRow>
             <TableHead className="w-[150px] font-bold text-lg sticky left-0 bg-background">Player</TableHead>
-            {Array.from({length: 4}).map((_, i) => (
-                <TableHead key={`r${i+1}`} className="text-center font-bold text-xs">{`R${i+1}`}</TableHead>
+            {raceHeaders.slice(0, 4).map((header, i) => (
+                <TableHead key={`h${i}`} className="text-center font-bold text-xs p-1">
+                  {header.shortName}
+                  {header.pick && header.pick !== 'none' && (
+                    <Circle className={cn("h-2 w-2 mx-auto mt-1", header.pick === 'blue' ? 'fill-blue-500' : 'fill-red-500')} />
+                  )}
+                </TableHead>
             ))}
             <TableHead className="text-center font-bold bg-muted/50">GP1</TableHead>
-            {Array.from({length: 4}).map((_, i) => (
-                <TableHead key={`r${i+5}`} className="text-center font-bold text-xs">{`R${i+5}`}</TableHead>
+            {raceHeaders.slice(4, 8).map((header, i) => (
+                <TableHead key={`h${i+4}`} className="text-center font-bold text-xs p-1">
+                  {header.shortName}
+                  {header.pick && header.pick !== 'none' && (
+                    <Circle className={cn("h-2 w-2 mx-auto mt-1", header.pick === 'blue' ? 'fill-blue-500' : 'fill-red-500')} />
+                  )}
+                </TableHead>
             ))}
             <TableHead className="text-center font-bold bg-muted/50">GP2</TableHead>
-            {Array.from({length: 4}).map((_, i) => (
-                <TableHead key={`r${i+9}`} className="text-center font-bold text-xs">{`R${i+9}`}</TableHead>
+            {raceHeaders.slice(8, 12).map((header, i) => (
+                <TableHead key={`h${i+8}`} className="text-center font-bold text-xs p-1">
+                  {header.shortName}
+                  {header.pick && header.pick !== 'none' && (
+                    <Circle className={cn("h-2 w-2 mx-auto mt-1", header.pick === 'blue' ? 'fill-blue-500' : 'fill-red-500')} />
+                  )}
+                </TableHead>
             ))}
             <TableHead className="text-center font-bold bg-muted/50">GP3</TableHead>
 
