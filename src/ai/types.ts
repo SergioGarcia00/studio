@@ -105,6 +105,7 @@ export type ExtractedData = {
   imageUrl: string;
   filename: string;
   raceNumber: number;
+  raceName?: string;
   data: ValidatedRacePlayerResult[];
 };
 
@@ -117,6 +118,3 @@ export type MergedRaceData = {
 export type ShockLog = {
   [raceNumber: number]: string; // player name
 }
-
-    
-    

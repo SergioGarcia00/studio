@@ -38,6 +38,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
@@ -51,6 +58,7 @@ import { Textarea } from '../ui/textarea';
 import { cn } from '@/lib/utils';
 import { Slider } from '../ui/slider';
 import { Label } from '../ui/label';
+import { RACE_TRACKS } from '@/lib/race-tracks';
 
 
 type ImageQueueItem = {
@@ -683,20 +691,10 @@ export default function ScoreParser() {
     });
   }
 
-  const handleRaceNumberChange = (originalIndex: number, newRaceNumber: number) => {
+  const handleRaceNameChange = (originalIndex: number, newRaceName: string) => {
     setExtractedData(currentData => {
         const newData = [...currentData];
-        // Ensure the new race number isn't already taken by another item
-        const isTaken = newData.some((item, idx) => item.raceNumber === newRaceNumber && idx !== originalIndex);
-        if (!isTaken) {
-            newData[originalIndex].raceNumber = newRaceNumber;
-        } else {
-            toast({
-                title: 'Race number taken',
-                description: `Race ${newRaceNumber} is already assigned. Please choose another.`,
-                variant: 'destructive',
-            })
-        }
+        newData[originalIndex].raceName = newRaceName;
         return newData;
     });
   };
@@ -895,7 +893,9 @@ export default function ScoreParser() {
                                 </div>
                               )}
                               <div className='text-left'>
-                                  <p className='font-semibold'>{result.filename} (Race {result.raceNumber})</p>
+                                  <p className='font-semibold'>
+                                    {`Race ${result.raceNumber}${result.raceName ? `: ${result.raceName}` : ''}`}
+                                  </p>
                                   <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
                               </div>
                           </div>
@@ -946,14 +946,20 @@ export default function ScoreParser() {
                       </div>
                       <div className='space-y-6 mt-4 p-4 border rounded-lg'>
                         <div className="grid gap-2">
-                            <Label>Race Number: {result.raceNumber}</Label>
-                            <Slider
-                                value={[result.raceNumber]}
-                                onValueChange={([val]) => handleRaceNumberChange(index, val)}
-                                min={1}
-                                max={12}
-                                step={1}
-                            />
+                          <Label>Race Name</Label>
+                          <Select
+                            value={result.raceName}
+                            onValueChange={(value) => handleRaceNameChange(index, value)}
+                          >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a race track..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.entries(RACE_TRACKS).map(([abbr, fullName]) => (
+                                    <SelectItem key={abbr} value={fullName}>{fullName}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div className="grid gap-2">
