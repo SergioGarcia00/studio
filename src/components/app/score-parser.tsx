@@ -27,6 +27,7 @@ import {
  UploadCloud,
  List,
  Settings,
+ ClipboardCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -130,7 +131,12 @@ export default function ScoreParser() {
 
  useEffect(() => {
     // Sync local state with persisted store on mount
-    setLocalExtractedData(extractedData.map(d => ({ ...d })));
+    const storedData = useResultsStore.getState().extractedData;
+    if (Array.isArray(storedData)) {
+      // Create object URLs for images that might be stored locally from previous sessions if needed
+      // For now, we assume they are lost on refresh and only care about the data
+      setLocalExtractedData(storedData.map(d => ({ ...d })));
+    }
   }, []);
 
   useEffect(() => {
@@ -304,7 +310,6 @@ export default function ScoreParser() {
       
       return adjustedRaceData;
   };
-
 
   const updateMergedDataWithRace = (
     currentMergedData: MergedRaceData,
@@ -637,6 +642,7 @@ export default function ScoreParser() {
     const batchExtractedResults: LocalExtractedData[] = [];
     let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(useResultsStore.getState().mergedData);
     
+    let processedImageCount = 0;
     for (const item of imageQueue) {
       const { file, retries } = item;
       const raceForThisImage = currentRaceNumber;
@@ -705,8 +711,8 @@ export default function ScoreParser() {
           incrementUsage();
         }
         
-        count++;
-        setProcessedCount(count);
+        processedImageCount++;
+        setProcessedCount(processedImageCount);
         currentRaceNumber++;
 
       } catch (e: any) {
@@ -725,8 +731,8 @@ export default function ScoreParser() {
                   data: [],
               };
               batchExtractedResults.push(errorResult);
-              count++;
-              setProcessedCount(count);
+              processedImageCount++;
+              setProcessedCount(processedImageCount);
               currentRaceNumber++;
               toast({
                   title: `Failed to process '${file.name}'`,
@@ -736,7 +742,7 @@ export default function ScoreParser() {
           }
       }
       
-      setProgress((count / images.length) * 100);
+      setProgress((processedImageCount / images.length) * 100);
     }
     
     // Batch state updates
@@ -839,8 +845,8 @@ export default function ScoreParser() {
 
   const handleRaceNameChange = (raceNumberToUpdate: number, newRaceName: string) => {
     setLocalExtractedData(currentData => {
-        const dataCopy = JSON.parse(JSON.stringify(currentData));
-        const raceToUpdate = dataCopy.find((item: ExtractedData) => item.raceNumber === raceNumberToUpdate);
+        const dataCopy = JSON.parse(JSON.stringify(currentData)) as LocalExtractedData[];
+        const raceToUpdate = dataCopy.find((item) => item.raceNumber === raceNumberToUpdate);
         if (raceToUpdate) {
             raceToUpdate.raceName = newRaceName;
         }
@@ -866,6 +872,13 @@ export default function ScoreParser() {
   };
 
   const allPlayers = useMemo(() => Object.values(mergedData), [mergedData]);
+  const isComplete = useMemo(() => {
+    if (localExtractedData.length === 1 && localExtractedData[0].raceName === 'Final Summary') {
+        return true;
+    }
+    return localExtractedData.length === 12 && localExtractedData.every(d => d.data.length > 0);
+  }, [localExtractedData]);
+  
   const isDemoData = useMemo(() => Array.isArray(localExtractedData) && localExtractedData.length > 0 && localExtractedData.every(d => !d.imageObjectURL), [localExtractedData]);
 
   return (
@@ -992,6 +1005,12 @@ export default function ScoreParser() {
                         <Link href="/preview">
                           <TableIcon className="mr-2 h-4 w-4" />
                           Preview Results
+                        </Link>
+                      </Button>
+                       <Button asChild variant="default" disabled={!isComplete}>
+                        <Link href="/summary">
+                          <ClipboardCheck className="mr-2 h-4 w-4" />
+                          Preview Summary
                         </Link>
                       </Button>
                       <Button onClick={handleClearResults} variant="destructive" size="icon">
