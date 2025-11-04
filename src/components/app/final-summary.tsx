@@ -33,9 +33,9 @@ const FinalSummary = () => {
         
         const teamOrder = Object.keys(groups).sort((a, b) => {
             const aIsBlue = a.toLowerCase().includes('blue');
-            const bIsRed = b.toLowerCase().includes('red');
-            if (aIsBlue && bIsRed) return -1;
-            if (bIsBlue && !aIsBlue) return 1;
+            const bIsBlue = b.toLowerCase().includes('blue');
+            if (aIsBlue && !bIsBlue) return -1;
+            if (!aIsBlue && bIsBlue) return 1;
             return 0;
         });
     
