@@ -17,6 +17,7 @@ import {
  ImageDown,
  TestTube2,
  FileDown,
+ ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,6 +29,12 @@ import {
  TableHeader,
  TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
@@ -277,17 +284,17 @@ export default function ScoreParser() {
       });
   }, []);
 
-  const handleToggleShock = (raceNumber: number, team: string) => {
+  const handleToggleShock = (raceNumber: number, playerName: string) => {
     setShockLog(currentLog => {
       const newLog = { ...currentLog };
-      const currentShockedTeam = newLog[raceNumber];
+      const currentShockedPlayer = newLog[raceNumber];
  
-      if (currentShockedTeam === team) {
-        // If the same team is clicked, remove the shock
+      if (currentShockedPlayer === playerName) {
+        // If the same player is clicked, remove the shock
         delete newLog[raceNumber];
       } else {
-        // Otherwise, set the shock for this team
-        newLog[raceNumber] = team;
+        // Otherwise, set the shock for this player
+        newLog[raceNumber] = playerName;
       }
      
       return newLog;
@@ -362,8 +369,8 @@ export default function ScoreParser() {
         });
 
         if (Math.random() < 0.8) {
-          const shockedTeam = Math.random() < 0.5 ? blueTeamName : redTeamName;
-          newShockLog[i + 1] = shockedTeam;
+          const shockedPlayer = playersInRace[Math.floor(Math.random() * playersInRace.length)];
+          newShockLog[i + 1] = shockedPlayer;
         }
     }
    
@@ -596,7 +603,9 @@ export default function ScoreParser() {
     const teamA = teams.find(t => t.includes('BLUE')) || 'Team A';
     const teamB = teams.find(t => t.includes('RED')) || 'Team B';
     
-    const shockedTeam = shockLog[raceData.raceNumber];
+    const shockedPlayerName = shockLog[raceData.raceNumber];
+    const shockedPlayer = allPlayersInApp.find(p => p.playerName === shockedPlayerName);
+    const shockedTeam = shockedPlayer?.team;
 
     const shocksTeamA = shockedTeam === teamA ? 1 : 0;
     const shocksTeamB = shockedTeam === teamB ? 1 : 0;
@@ -869,31 +878,25 @@ export default function ScoreParser() {
                         </Table>
                       </div>
                       <div className='flex items-center justify-end gap-2 mt-4 p-2 border-t'>
-                          <span className='text-sm font-medium mr-2'>Shock:</span>
-                          <Button 
-                              size="sm" 
-                              onClick={() => handleToggleShock(result.raceNumber, 'JJ (BLUE)')}
-                              className={cn(
-                                'border-blue-500 text-blue-500',
-                                shockLog[result.raceNumber] === 'JJ (BLUE)' ? 'bg-blue-500/20' : 'bg-transparent'
-                              )}
-                              variant={shockLog[result.raceNumber] === 'JJ (BLUE)' ? 'secondary' : 'outline'}
-                          >
-                            <Zap className="mr-2 h-4 w-4" />
-                            Rayo Azul
-                          </Button>
-                          <Button 
-                              size="sm"
-                              onClick={() => handleToggleShock(result.raceNumber, 'DS (RED)')}
-                              className={cn(
-                                'border-red-500 text-red-500',
-                                shockLog[result.raceNumber] === 'DS (RED)' ? 'bg-red-500/20' : 'bg-transparent'
-                              )}
-                               variant={shockLog[result.raceNumber] === 'DS (RED)' ? 'secondary' : 'outline'}
-                          >
-                             <Zap className="mr-2 h-4 w-4" />
-                            Rayo Rojo
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Zap className="mr-2 h-4 w-4" />
+                                {shockLog[result.raceNumber] ? `Shock: ${shockLog[result.raceNumber]}` : 'Mark Shock'}
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleToggleShock(result.raceNumber, shockLog[result.raceNumber])}>
+                                Remove Shock
+                              </DropdownMenuItem>
+                              {allPlayers.map(p => (
+                                <DropdownMenuItem key={p.playerName} onClick={() => handleToggleShock(result.raceNumber, p.playerName)}>
+                                  {p.playerName}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -934,3 +937,6 @@ export default function ScoreParser() {
 
     
 
+
+
+    

@@ -268,38 +268,35 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     <TableCell className="sticky left-0">
                         {team}
                     </TableCell>
-                    {Array.from({ length: 17 }).map((_, i) => {
-                      const isGpColumn = i === 4 || i === 9 || i === 14;
-                      const raceNumber = [1, 2, 3, 4, 0, 5, 6, 7, 8, 0, 9, 10, 11, 12, 0, 0, 0][i];
-                      return (
-                        <TableCell key={i} className={cn( isGpColumn ? 'bg-muted/50' : '' )}>
-                          {!isGpColumn && shockLog[raceNumber] === team && (
-                            <div className='flex items-center justify-center'>
-                              <ShockIcon className='h-4 w-4' />
-                            </div>
-                          )}
-                        </TableCell>
-                      );
-                    })}
+                    <TableCell colSpan={16}></TableCell>
                 </TableRow>
                 {players.map((player, pIndex) => (
                   <TableRow key={pIndex}>
                     <TableCell className="font-medium sticky left-0 bg-card/95">{player.playerName}</TableCell>
                     {player.ranks.slice(0,4).map((rank, sIndex) => (
                         <TableCell key={sIndex} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
-                          {rank ?? '12th'}
+                          <div className='flex items-center justify-center gap-1'>
+                            {rank ?? '12th'}
+                            {shockLog[sIndex + 1] === player.playerName && <ShockIcon className='h-3 w-3' />}
+                          </div>
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[3] !== null ? player.gp1 : '-'}</TableCell>
                     {player.ranks.slice(4,8).map((rank, sIndex) => (
                         <TableCell key={sIndex+4} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
-                            {rank ?? '12th'}
+                            <div className='flex items-center justify-center gap-1'>
+                              {rank ?? '12th'}
+                              {shockLog[sIndex + 5] === player.playerName && <ShockIcon className='h-3 w-3' />}
+                            </div>
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[7] !== null ? player.gp2 : '-'}</TableCell>
                      {player.ranks.slice(8,12).map((rank, sIndex) => (
                         <TableCell key={sIndex+8} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-red-700/80')}>
-                            {rank ?? '12th'}
+                            <div className='flex items-center justify-center gap-1'>
+                              {rank ?? '12th'}
+                              {shockLog[sIndex + 9] === player.playerName && <ShockIcon className='h-3 w-3' />}
+                            </div>
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[11] !== null ? player.gp3 : '-'}</TableCell>
@@ -371,3 +368,5 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
 });
 
 RaceResultsPreview.displayName = 'RaceResultsPreview';
+
+    

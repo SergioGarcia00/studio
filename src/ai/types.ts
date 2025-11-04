@@ -115,7 +115,8 @@ export type MergedRaceData = {
 }
 
 export type ShockLog = {
-  [raceNumber: number]: string; // team name
+  [raceNumber: number]: string; // player name
 }
 
+    
     
