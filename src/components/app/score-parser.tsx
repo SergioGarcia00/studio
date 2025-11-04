@@ -279,68 +279,71 @@ export default function ScoreParser() {
   };
 
 
-  const updateMergedDataWithRace = useCallback((raceResults: (ValidatedRacePlayerResult)[], raceNumber: number, masterPlayerList: string[]) => {
-      setMergedData(prevData => {
-        let updatedData = JSON.parse(JSON.stringify(prevData)) as MergedRaceData;
-   
-        // If master list is provided and it's the first race, initialize data
-        if (raceNumber === 1 && masterPlayerList.length > 0 && Object.keys(updatedData).length === 0) {
-          masterPlayerList.forEach(name => {
-            updatedData[name] = {
-              playerName: name,
-              team: 'Unassigned',
+  const updateMergedDataWithRace = (
+    currentMergedData: MergedRaceData,
+    raceResults: ValidatedRacePlayerResult[], 
+    raceNumber: number, 
+    masterPlayerList: string[]
+  ): MergedRaceData => {
+    let updatedData = JSON.parse(JSON.stringify(currentMergedData)) as MergedRaceData;
+
+    // If master list is provided and it's the first race, initialize data
+    if (raceNumber === 1 && masterPlayerList.length > 0 && Object.keys(updatedData).length === 0) {
+      masterPlayerList.forEach(name => {
+        updatedData[name] = {
+          playerName: name,
+          team: 'Unassigned',
+          ranks: Array(12).fill(null),
+          gp1: null, gp2: null, gp3: null,
+          total: null, rank: null, isValid: true,
+        };
+      });
+    }
+
+    const currentMasterList = Object.keys(updatedData).length > 0 ? Object.keys(updatedData) : masterPlayerList;
+
+    for (const racePlayer of raceResults) {
+      if (!racePlayer.isValid || !racePlayer.playerName) continue;
+
+      const masterName = getMasterPlayerName(racePlayer.playerName, currentMasterList);
+      
+      if (!masterName) {
+        // Could not match player and list is full
+        continue;
+      }
+
+      // If player doesn't exist, create them
+      if (!updatedData[masterName]) {
+          if (Object.keys(updatedData).length < 12) {
+            updatedData[masterName] = {
+              playerName: masterName,
+              team: racePlayer.team,
               ranks: Array(12).fill(null),
               gp1: null, gp2: null, gp3: null,
               total: null, rank: null, isValid: true,
             };
-          });
-        }
-   
-        const currentMasterList = Object.keys(updatedData).length > 0 ? Object.keys(updatedData) : masterPlayerList;
-   
-        for (const racePlayer of raceResults) {
-          if (!racePlayer.isValid || !racePlayer.playerName) continue;
-   
-          const masterName = getMasterPlayerName(racePlayer.playerName, currentMasterList);
-         
-          if (!masterName) {
-            // Could not match player and list is full
+          } else {
             continue;
           }
-   
-          // If player doesn't exist, create them
-          if (!updatedData[masterName]) {
-             if (Object.keys(updatedData).length < 12) {
-                updatedData[masterName] = {
-                  playerName: masterName,
-                  team: racePlayer.team,
-                  ranks: Array(12).fill(null),
-                  gp1: null, gp2: null, gp3: null,
-                  total: null, rank: null, isValid: true,
-                };
-             } else {
-                continue;
-             }
+      }
+
+      const mergedPlayer = updatedData[masterName];
+
+      if (raceNumber >= 1 && raceNumber <= 12) {
+        mergedPlayer.ranks[raceNumber - 1] = racePlayer.rank;
+      }
+
+      // Lock in the team name once a valid one with a color is found
+      if (racePlayer.team && (mergedPlayer.team === 'Unassigned' || !mergedPlayer.team.includes('('))) {
+          if (racePlayer.team.includes('(BLUE)') || racePlayer.team.includes('(RED)')) {
+            mergedPlayer.team = racePlayer.team;
           }
-   
-          const mergedPlayer = updatedData[masterName];
-   
-          if (raceNumber >= 1 && raceNumber <= 12) {
-            mergedPlayer.ranks[raceNumber - 1] = racePlayer.rank;
-          }
-   
-          // Lock in the team name once a valid one with a color is found
-          if (racePlayer.team && (mergedPlayer.team === 'Unassigned' || !mergedPlayer.team.includes('('))) {
-              if (racePlayer.team.includes('(BLUE)') || racePlayer.team.includes('(RED)')) {
-                mergedPlayer.team = racePlayer.team;
-              }
-          }
-        }
-   
-        const finalData = recalculateAllTotals(updatedData);
-        return finalData;
-      });
-  }, [setMergedData]);
+      }
+    }
+
+    const finalData = recalculateAllTotals(updatedData);
+    return finalData;
+  };
 
   const handleToggleShock = (raceNumber: number, playerName: string) => {
     setShockLog(currentLog => {
@@ -511,7 +514,7 @@ export default function ScoreParser() {
     
     const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
     let processedCount = 0;
-    const newExtractedResults: ExtractedData[] = [];
+    const batchExtractedResults: ExtractedData[] = [];
     const providedPlayerNames = playerNames.split(',').map(name => name.trim()).filter(name => name.length > 0);
     let currentRaceNumber = nextRaceNumber;
     
@@ -524,14 +527,12 @@ export default function ScoreParser() {
       });
     };
     
-    let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(mergedData);
+    // Get a snapshot of the current merged data to calculate deltas
+    const initialMergedData = useResultsStore.getState().mergedData;
+    let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(initialMergedData);
     
-    const tempMergedDataForCalc: MergedRaceData = JSON.parse(JSON.stringify(mergedData));
-
-
     for (const item of imageQueue) {
       const { file, retries } = item;
-      let newExtractedResult: ExtractedData | null = null;
       const raceForThisImage = currentRaceNumber;
 
       try {
@@ -547,13 +548,15 @@ export default function ScoreParser() {
 
         const aiResult = await extractRaceDataFromImage(input);
         
+        const tempMergedDataForThisRace = updateMergedDataWithRace(initialMergedData, [], raceForThisImage -1, masterPlayerList);
+        
         let raceDataWithScores = aiResult.map(player => {
             if (!player.isValid || !player.playerName) {
               return { ...player, rank: '?th', raceScore: 0, score: player.score ?? 0 };
             }
 
             const masterName = getMasterPlayerName(player.playerName, masterPlayerList);
-            const prevTotal = raceForThisImage > 1 ? (tempMergedDataForCalc[masterName]?.total ?? 0) : 0;
+            const prevTotal = raceForThisImage > 1 ? (tempMergedDataForThisRace[masterName]?.total ?? 0) : 0;
             const currentTotal = player.score;
             const raceScore = currentTotal - prevTotal;
             const rank = SCORE_TO_RANK[raceScore] || '?th';
@@ -573,14 +576,14 @@ export default function ScoreParser() {
         const finalRaceData = raceDataWithScores.map(player => {
             if (!player.isValid) return player;
             const masterName = getMasterPlayerName(player.playerName, masterPlayerList);
-            const prevTotal = raceForThisImage > 1 ? (tempMergedDataForCalc[masterName]?.total ?? 0) : 0;
+            const prevTotal = raceForThisImage > 1 ? (tempMergedDataForThisRace[masterName]?.total ?? 0) : 0;
             return {
                 ...player,
                 score: prevTotal + (player.raceScore || 0),
             };
         });
 
-        newExtractedResult = {
+        const newExtractedResult = {
           imageUrl: url,
           filename: file.name,
           raceNumber: raceForThisImage,
@@ -592,32 +595,10 @@ export default function ScoreParser() {
         }
 
         if(finalRaceData.some(d => d.isValid)) {
-          updateMergedDataWithRace(finalRaceData, raceForThisImage, masterPlayerList);
+          batchExtractedResults.push(newExtractedResult);
           incrementUsage();
-
-          finalRaceData.forEach(p => {
-              if (p.isValid && p.playerName) {
-                  const masterName = getMasterPlayerName(p.playerName, masterPlayerList);
-                  if (!masterName) return;
-
-                  if (!tempMergedDataForCalc[masterName]) {
-                      tempMergedDataForCalc[masterName] = { 
-                        playerName: masterName, 
-                        team: p.team,
-                        ranks: Array(12).fill(null), 
-                        gp1: null, gp2: null, gp3: null, 
-                        total: 0, 
-                        rank: null, 
-                        isValid: true 
-                      };
-                  }
-                  tempMergedDataForCalc[masterName].total = p.score;
-                  if (raceForThisImage >= 1 && raceForThisImage <= 12) {
-                    tempMergedDataForCalc[masterName].ranks[raceForThisImage - 1] = p.rank;
-                  }
-              }
-          });
         }
+        
         processedCount++;
         currentRaceNumber++;
 
@@ -630,13 +611,15 @@ export default function ScoreParser() {
                   description: `Retrying '${file.name}'...`,
               });
           } else {
-              newExtractedResult = {
+              const errorResult = {
                   imageUrl: URL.createObjectURL(file),
                   filename: file.name,
                   raceNumber: raceForThisImage,
                   data: [],
               };
+              batchExtractedResults.push(errorResult);
               processedCount++;
+               currentRaceNumber++;
               toast({
                   title: `Failed to process '${file.name}'`,
                   description: e.message || 'An unknown error occurred.',
@@ -645,13 +628,31 @@ export default function ScoreParser() {
           }
       }
       
-      if(newExtractedResult){
-          setExtractedData(prev => [...prev, newExtractedResult]);
-      }
       setProgress((processedCount / images.length) * 100);
     }
     
-    setExtractedData(prev => [...prev].sort((a,b) => a.raceNumber - b.raceNumber));
+    // Batch state updates
+    if (batchExtractedResults.length > 0) {
+        // Sort all new results by race number
+        batchExtractedResults.sort((a,b) => a.raceNumber - b.raceNumber);
+
+        // Get the latest state before updating
+        const currentExtractedData = useResultsStore.getState().extractedData;
+        const currentMergedData = useResultsStore.getState().mergedData;
+        
+        const allExtractedData = [...currentExtractedData, ...batchExtractedResults].sort((a,b) => a.raceNumber - b.raceNumber);
+        
+        let newMergedData = currentMergedData;
+        for (const result of batchExtractedResults) {
+          if (result.data.length > 0) {
+            newMergedData = updateMergedDataWithRace(newMergedData, result.data, result.raceNumber, masterPlayerList);
+          }
+        }
+        
+        setExtractedData(allExtractedData);
+        setMergedData(newMergedData);
+    }
+
     setNextRaceNumber(currentRaceNumber);
 
     toast({
@@ -735,16 +736,23 @@ export default function ScoreParser() {
   }
 
   const handleRaceNameChange = (raceNumberToUpdate: number, newRaceName: string) => {
+    // Get the current state from the store
     const currentData = useResultsStore.getState().extractedData;
+    
+    // Ensure it's an array before proceeding
     if (!Array.isArray(currentData)) return;
 
+    // Create a new array with the updated item
     const newData = currentData.map(item => {
         if (item.raceNumber === raceNumberToUpdate) {
+            // Create a new object for the item to be updated
             return { ...item, raceName: newRaceName };
         }
+        // Return the existing item if it's not the one to be updated
         return item;
     });
 
+    // Update the state with the new array
     setExtractedData(newData);
   };
 
