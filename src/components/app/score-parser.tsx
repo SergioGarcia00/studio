@@ -53,7 +53,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
-import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput, RacePlayerResult, ShockLog, RacePicks } from '@/ai/types';
+import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput, RacePlayerResult, ShockLog, RacePicks, RacePick } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -758,7 +758,7 @@ export default function ScoreParser() {
   };
 
   const allPlayers = useMemo(() => Object.values(mergedData), [mergedData]);
-  const isDemoData = useMemo(() => extractedData.length > 0 && extractedData.every(d => d.imageUrl === ''), [extractedData]);
+  const isDemoData = useMemo(() => Array.isArray(extractedData) && extractedData.length > 0 && extractedData.every(d => d.imageUrl === ''), [extractedData]);
 
   return (
     <div className="flex flex-col h-full">
