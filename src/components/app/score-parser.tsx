@@ -203,7 +203,7 @@ export default function ScoreParser() {
             const allowedNewFiles = newFiles.slice(0, totalAllowed - images.length);
             setImages(prev => [...prev, ...allowedNewFiles]);
         } else {
-            setImages(prev => [...prev, ...allowedNewFiles]);
+            setImages(prev => [...prev, ...newFiles]);
         }
     }
 };
