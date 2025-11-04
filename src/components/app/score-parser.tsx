@@ -54,7 +54,20 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { extractRaceDataFromImage } from '@/ai/flows/extract-race-data-from-image';
-import type { ExtractedData, MergedRaceData, Player, ValidatedRacePlayerResult, ExtractRaceDataFromImageInput, RacePlayerResult, ShockLog, RacePicks, RacePick } from '@/ai/types';
+import { extractTableDataFromImage } from '@/ai/flows/extract-table-data-from-image';
+import type { 
+    ExtractedData, 
+    MergedRaceData, 
+    Player, 
+    ValidatedRacePlayerResult, 
+    ExtractRaceDataFromImageInput, 
+    ExtractTableDataFromImageInput,
+    RacePlayerResult, 
+    ShockLog, 
+    RacePicks, 
+    RacePick,
+    RawPlayer
+} from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -465,7 +478,7 @@ export default function ScoreParser() {
    
     let finalData = recalculateAllTotals(newMergedData);
 
-    const newExtractedData: ExtractedData[] = [];
+    const newExtractedData: LocalExtractedData[] = [];
     for (let i = 0; i < 12; i++) {
         let playersForExtractedData;
         if (i === singleDcRace) {
@@ -527,9 +540,7 @@ export default function ScoreParser() {
     
     const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
     let processedCount = 0;
-    const batchExtractedResults: LocalExtractedData[] = [];
     const providedPlayerNames = playerNames.split(',').map(name => name.trim()).filter(name => name.length > 0);
-    let currentRaceNumber = nextRaceNumber;
     
     const readFileAsDataURL = (file: File): Promise<string> => {
       return new Promise((resolve, reject) => {
@@ -540,9 +551,91 @@ export default function ScoreParser() {
       });
     };
     
-    // Get a snapshot of the current merged data to calculate deltas
-    const initialMergedData = useResultsStore.getState().mergedData;
-    let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(initialMergedData);
+    // --- SINGLE IMAGE (SUMMARY TABLE) LOGIC ---
+    if (images.length === 1) {
+        const file = images[0];
+        try {
+            const url = await readFileAsDataURL(file);
+            const input: ExtractTableDataFromImageInput = {
+                photoDataUri: url,
+                playerNames: providedPlayerNames.length > 0 ? providedPlayerNames : undefined,
+            };
+
+            const aiResult = await extractTableDataFromImage(input);
+            const { tableData } = aiResult;
+            
+            const newMergedData: MergedRaceData = {};
+            const newShockLog: ShockLog = {};
+
+            tableData.forEach(player => {
+                if (!player.playerName) return;
+
+                newMergedData[player.playerName] = {
+                    playerName: player.playerName,
+                    team: player.team,
+                    ranks: Array(12).fill(null), // Summary table doesn't have individual ranks
+                    gp1: player.gp1,
+                    gp2: player.gp2,
+                    gp3: player.gp3,
+                    total: player.total,
+                    rank: player.rank,
+                    isValid: true,
+                };
+                
+                if (player.shockedRaces) {
+                    player.shockedRaces.forEach(raceNum => {
+                        newShockLog[raceNum] = player.playerName;
+                    });
+                }
+            });
+
+            setMergedData(newMergedData);
+            setShockLog(newShockLog);
+            
+            // Create a single "ExtractedData" item for review purposes
+            const summaryExtractedData: LocalExtractedData = {
+                imageUrl: '',
+                imageObjectURL: URL.createObjectURL(file),
+                filename: file.name,
+                raceNumber: 1, // Treat as one block
+                raceName: 'Final Summary',
+                data: tableData.map(p => ({
+                    playerName: p.playerName,
+                    team: p.team,
+                    score: p.total,
+                    rank: p.rank,
+                    isValid: true,
+                })),
+            };
+            setLocalExtractedData([summaryExtractedData]);
+            setNextRaceNumber(13); // Mark as complete
+            incrementUsage();
+
+            toast({
+              title: 'Summary Extraction Complete',
+              description: `Processed final summary table.`,
+              className: 'bg-accent text-accent-foreground'
+            });
+
+        } catch (e: any) {
+            console.error(`Failed to process summary image ${file.name}:`, e);
+            setError(e.message || 'An unknown error occurred during summary extraction.');
+            toast({
+                title: `Failed to process '${file.name}'`,
+                description: e.message || 'An unknown error occurred.',
+                variant: 'destructive',
+            });
+        }
+
+        setIsLoading(false);
+        setImages([]);
+        return;
+    }
+
+    // --- MULTIPLE IMAGE (RACE-BY-RACE) LOGIC ---
+    let currentRaceNumber = nextRaceNumber;
+    const batchExtractedResults: LocalExtractedData[] = [];
+    let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(useResultsStore.getState().mergedData);
     
     for (const item of imageQueue) {
       const { file, retries } = item;
@@ -561,7 +654,7 @@ export default function ScoreParser() {
 
         const aiResult = await extractRaceDataFromImage(input);
         
-        const tempMergedDataForThisRace = updateMergedDataWithRace(initialMergedData, [], raceForThisImage -1, masterPlayerList);
+        const tempMergedDataForThisRace = updateMergedDataWithRace(useResultsStore.getState().mergedData, [], raceForThisImage -1, masterPlayerList);
         
         let raceDataWithScores = aiResult.map(player => {
             if (!player.isValid || !player.playerName) {
@@ -597,8 +690,8 @@ export default function ScoreParser() {
         });
 
         const newExtractedResult: LocalExtractedData = {
-          imageUrl: '', // We don't store this in state
-          imageObjectURL: URL.createObjectURL(file), // For local display
+          imageUrl: '',
+          imageObjectURL: URL.createObjectURL(file),
           filename: file.name,
           raceNumber: raceForThisImage,
           data: finalRaceData,
@@ -625,7 +718,7 @@ export default function ScoreParser() {
                   description: `Retrying '${file.name}'...`,
               });
           } else {
-              const errorResult = {
+              const errorResult: LocalExtractedData = {
                   imageUrl: '',
                   imageObjectURL: URL.createObjectURL(file),
                   filename: file.name,
@@ -648,23 +741,16 @@ export default function ScoreParser() {
     
     // Batch state updates
     if (batchExtractedResults.length > 0) {
-        // Sort all new results by race number
         batchExtractedResults.sort((a,b) => a.raceNumber - b.raceNumber);
 
-        // Get the latest state before updating
-        const currentLocalExtractedData = [...localExtractedData];
-        const currentMergedData = useResultsStore.getState().mergedData;
-        
-        const allExtractedData = [...currentLocalExtractedData, ...batchExtractedResults].sort((a,b) => a.raceNumber - b.raceNumber);
-        
-        let newMergedData = currentMergedData;
+        setLocalExtractedData(prev => [...prev, ...batchExtractedResults].sort((a, b) => a.raceNumber - b.raceNumber));
+
+        let newMergedData = useResultsStore.getState().mergedData;
         for (const result of batchExtractedResults) {
           if (result.data.length > 0) {
             newMergedData = updateMergedDataWithRace(newMergedData, result.data, result.raceNumber, masterPlayerList);
           }
         }
-        
-        setLocalExtractedData(allExtractedData);
         setMergedData(newMergedData);
     }
 
@@ -792,8 +878,8 @@ export default function ScoreParser() {
           <div className="lg:col-span-1 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><UploadCloud /> 1. Upload Races</CardTitle>
-                <CardDescription>Upload up to 12 race result images. Usage today: {usage.count} images.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><UploadCloud /> 1. Upload Images</CardTitle>
+                <CardDescription>Upload a single summary image, or up to 12 race images. Usage: {usage.count} images.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col items-center justify-center w-full">
@@ -846,7 +932,7 @@ export default function ScoreParser() {
                   ) : (
                     <>
                       <Sparkles className="mr-2 h-5 w-5" />
-                      2. Extract Race Data
+                      2. Extract Data
                     </>
                   )}
                 </Button>
@@ -878,7 +964,7 @@ export default function ScoreParser() {
                   <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
                   {images.length > 0 ? (
                     <>
-                      <p className='text-muted-foreground mb-4'>Processing race {Math.min(Math.floor(progress / (100 / images.length)) + nextRaceNumber, 12)} of 12... ({Math.round(progress)}%)</p>
+                      <p className='text-muted-foreground mb-4'>Processing image {processedCount + 1} of {images.length}... ({Math.round(progress)}%)</p>
                       <Progress value={progress} className="w-3/4" />
                     </>
                   ) : (
