@@ -86,9 +86,9 @@ const FinalSummary = () => {
     }
     
     return (
-        <Card className="max-w-2xl mx-auto bg-gray-900/50 border-gray-800 text-white">
+        <Card className="max-w-2xl mx-auto bg-card border-border">
             <CardHeader className="text-center">
-                <CardDescription className="text-gray-400">{today}</CardDescription>
+                <CardDescription>{today}</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
                 {/* Score Summary */}
@@ -115,15 +115,15 @@ const FinalSummary = () => {
                             <h3 className="text-xl font-semibold mb-2 text-blue-400 text-center">{winningTeam.name.split(' (')[0].trim()}</h3>
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="border-gray-700">
-                                        <TableHead className="w-1/3 text-gray-400">Player</TableHead>
-                                        <TableHead className="w-1/3 text-right text-gray-400">Total</TableHead>
-                                        <TableHead className="w-1/3 text-right text-gray-400">Rank</TableHead>
+                                    <TableRow className="border-border">
+                                        <TableHead className="w-1/3 text-muted-foreground">Player</TableHead>
+                                        <TableHead className="w-1/3 text-right text-muted-foreground">Total</TableHead>
+                                        <TableHead className="w-1/3 text-right text-muted-foreground">Rank</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {winningTeam.players.map((player) => (
-                                        <TableRow key={player.playerName} className="border-gray-800">
+                                        <TableRow key={player.playerName} className="border-border/50">
                                             <TableCell className="font-medium">{player.playerName}</TableCell>
                                             <TableCell className="text-right font-mono text-sm">{player.total}</TableCell>
                                             <TableCell className="text-right font-semibold text-sm">
@@ -143,15 +143,15 @@ const FinalSummary = () => {
                             <h3 className="text-xl font-semibold mb-2 text-gray-400 text-center">{losingTeam.name.split(' (')[0].trim()}</h3>
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="border-gray-700">
-                                        <TableHead className="w-1/3 text-gray-400">Player</TableHead>
-                                        <TableHead className="w-1/3 text-right text-gray-400">Total</TableHead>
-                                        <TableHead className="w-1/3 text-right text-gray-400">Rank</TableHead>
+                                    <TableRow className="border-border">
+                                        <TableHead className="w-1/3 text-muted-foreground">Player</TableHead>
+                                        <TableHead className="w-1/3 text-right text-muted-foreground">Total</TableHead>
+                                        <TableHead className="w-1/3 text-right text-muted-foreground">Rank</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {losingTeam.players.map((player) => (
-                                        <TableRow key={player.playerName} className="border-gray-800">
+                                        <TableRow key={player.playerName} className="border-border/50">
                                             <TableCell className="font-medium">{player.playerName}</TableCell>
                                             <TableCell className="text-right font-mono text-sm">{player.total}</TableCell>
                                             <TableCell className="text-right font-semibold text-sm">
