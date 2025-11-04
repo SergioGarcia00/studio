@@ -7,19 +7,16 @@ import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { Medal } from 'lucide-react';
 
 
-const getRankClass = (rank: string | null) => {
-    if (!rank) return '';
+const getRankMedal = (rank: string | null) => {
+    if (!rank) return null;
     const rankNum = parseInt(rank.replace(/\D/g, ''), 10);
-    if (rankNum === 1) return 'bg-yellow-400/80 text-black font-bold rounded';
-    if (rankNum === 2) return 'bg-slate-300/80 text-black font-bold rounded';
-    if (rankNum === 3) return 'bg-orange-400/80 text-black font-bold rounded';
-    if (rankNum >= 4 && rankNum <=6) return 'bg-blue-400/30 rounded';
-    if (rankNum >= 7 && rankNum <=9) return 'bg-green-400/30 rounded';
-    if (rankNum >= 10 && rankNum <=12) return 'bg-gray-400/30 rounded';
-
-    return '';
+    if (rankNum === 1) return <Medal className="h-4 w-4 text-yellow-500" />;
+    if (rankNum === 2) return <Medal className="h-4 w-4 text-slate-400" />;
+    if (rankNum === 3) return <Medal className="h-4 w-4 text-orange-600" />;
+    return null;
 };
 
 
@@ -129,7 +126,12 @@ const FinalSummary = () => {
                                         <TableRow key={player.playerName} className="border-gray-800">
                                             <TableCell className="font-medium">{player.playerName}</TableCell>
                                             <TableCell className="text-right font-mono text-sm">{player.total}</TableCell>
-                                            <TableCell className={cn("text-right font-semibold text-sm text-center", getRankClass(player.rank))}>{player.rank}</TableCell>
+                                            <TableCell className="text-right font-semibold text-sm">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {getRankMedal(player.rank)}
+                                                    <span>{player.rank}</span>
+                                                </div>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -152,7 +154,12 @@ const FinalSummary = () => {
                                         <TableRow key={player.playerName} className="border-gray-800">
                                             <TableCell className="font-medium">{player.playerName}</TableCell>
                                             <TableCell className="text-right font-mono text-sm">{player.total}</TableCell>
-                                            <TableCell className={cn("text-right font-semibold text-sm text-center", getRankClass(player.rank))}>{player.rank}</TableCell>
+                                            <TableCell className="text-right font-semibold text-sm">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {getRankMedal(player.rank)}
+                                                    <span>{player.rank}</span>
+                                                </div>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
