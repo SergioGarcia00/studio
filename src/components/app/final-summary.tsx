@@ -76,7 +76,6 @@ const FinalSummary = () => {
     return (
         <Card className="max-w-2xl mx-auto bg-gray-900/50 border-gray-800 text-white">
             <CardHeader className="text-center">
-                <CardTitle className="text-3xl font-bold">Final Results</CardTitle>
                 <CardDescription className="text-gray-400">{today}</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
