@@ -28,6 +28,7 @@ import {
  List,
  Settings,
  ClipboardCheck,
+ X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -205,6 +206,10 @@ export default function ScoreParser() {
             setImages(prev => [...prev, ...newFiles]);
         }
     }
+};
+
+const handleRemoveImage = (indexToRemove: number) => {
+    setImages(images.filter((_, index) => index !== indexToRemove));
 };
 
   const normalizePlayerName = (name: string): string => {
@@ -946,8 +951,15 @@ export default function ScoreParser() {
                   {images.length > 0 && !isLoading && (
                     <div className='grid grid-cols-3 md:grid-cols-4 lg:grid-cols-3 gap-2 mt-4'>
                         {images.map((file, index) => (
-                        <div key={index} className="relative aspect-video w-full">
+                        <div key={index} className="relative group aspect-video w-full">
                             <Image src={URL.createObjectURL(file)} alt={`Uploaded scoreboard ${index+1}`} fill className="rounded-lg object-contain" />
+                            <button
+                                onClick={() => handleRemoveImage(index)}
+                                className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-75 group-hover:opacity-100 transition-opacity"
+                                aria-label="Remove image"
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
                         </div>
                         ))}
                     </div>
