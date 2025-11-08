@@ -2,33 +2,26 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
   FileUp,
   Loader2,
   Sparkles,
-  Download,
-  XCircle,
-  FileImage,
+  X,
   ServerCrash,
   TableIcon,
   Trash2,
- Zap,
- ImageDown,
- TestTube2,
- FileDown,
- ChevronDown,
- RefreshCw,
- Circle,
- Minus,
- Users,
- UploadCloud,
- List,
- Settings,
- ClipboardCheck,
- X,
+  TestTube2,
+  RefreshCw,
+  Circle,
+  Settings,
+  UploadCloud,
+  List,
+  ClipboardCheck,
+  PanelRightOpen,
+  PanelRightClose
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -40,12 +33,6 @@ import {
  TableHeader,
  TableRow,
 } from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -60,21 +47,16 @@ import { extractTableDataFromImage } from '@/ai/flows/extract-table-data-from-im
 import type { 
     ExtractedData, 
     MergedRaceData, 
-    Player, 
+    RacePick,
     ValidatedRacePlayerResult, 
     ExtractRaceDataFromImageInput, 
     ExtractTableDataFromImageInput,
-    RacePlayerResult, 
     ShockLog, 
     RacePicks, 
-    RacePick,
-    RawPlayer
 } from '@/ai/types';
 import { exportToCsv } from '@/lib/csv-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Textarea } from '../ui/textarea';
-import { cn } from '@/lib/utils';
 import { Slider } from '../ui/slider';
 import { Label } from '../ui/label';
 import { RACE_TRACKS } from '@/lib/race-tracks';
@@ -104,20 +86,10 @@ const RANK_TO_SCORE: { [key: string]: number } = {
  '7th': 6, '8th': 5, '9th': 4, '10th': 3, '11th': 2, '12th': 1,
 };
 
-const SCORE_TO_RANK: { [key: number]: string } = Object.fromEntries(
- Object.entries(RANK_TO_SCORE).map(([rank, score]) => [score, rank])
-);
-
-const rankToScore = (rank: string | null): number => {
-    if (!rank) return 1; // Treat null rank as 12th place for score calculation
-    return RANK_TO_SCORE[rank] || 1;
-};
-
 const sumRanks = (arr: (string|null)[]) => arr.reduce((acc: number, rank) => acc + rankToScore(rank), 0);
 
 export default function ScoreParser() {
  const [images, setImages] = useState<File[]>([]);
- const [playerNames, setPlayerNames] = useState('');
  const [uploadMode, setUploadMode] = useState<UploadMode>('race-by-race');
  const { 
     mergedData, setMergedData, 
@@ -139,7 +111,10 @@ export default function ScoreParser() {
     // Sync local state with persisted store on mount
     const storedData = useResultsStore.getState().extractedData;
     if (Array.isArray(storedData)) {
-      setLocalExtractedData(storedData.map(d => ({ ...d })));
+      const regeneratedData = storedData.map(d => ({ ...d }));
+      setLocalExtractedData(regeneratedData);
+      const lastRace = regeneratedData.reduce((max, d) => Math.max(max, d.raceNumber), 0);
+      setNextRaceNumber(lastRace + 1);
     }
   }, []);
 
@@ -401,9 +376,6 @@ const handleRemoveImage = (indexToRemove: number) => {
  'Jecht', 'Braska', 'Cid', 'Wedge', 'Biggs', 'Seymour'
     ];
     
-    const blueTeamPlayers = demoPlayers.slice(0, 6);
-    const redTeamPlayers = demoPlayers.slice(6);
-
     const blueTeamName = 'old legends (BLUE)';
     const redTeamName = 'DS (RED)';
 
@@ -426,7 +398,7 @@ const handleRemoveImage = (indexToRemove: number) => {
     const newRacePicks: RacePicks = {};
 
     const singleDcRace = Math.floor(Math.random() * 12);
-    const singleDcPlayer = redTeamPlayers[Math.floor(Math.random() * redTeamPlayers.length)];
+    const singleDcPlayer = demoPlayers[Math.floor(Math.random() * demoPlayers.length)];
 
     let doubleDcRace;
     do {
@@ -481,6 +453,8 @@ const handleRemoveImage = (indexToRemove: number) => {
     let finalData = recalculateAllTotals(newMergedData);
 
     const newExtractedData: LocalExtractedData[] = [];
+    const allTrackNames = Object.values(RACE_TRACKS);
+
     for (let i = 0; i < 12; i++) {
         let playersForExtractedData;
         if (i === singleDcRace) {
@@ -494,6 +468,7 @@ const handleRemoveImage = (indexToRemove: number) => {
         newExtractedData.push({
             filename: `Demo Race ${i + 1}`,
             raceNumber: i + 1,
+            raceName: allTrackNames[i % allTrackNames.length],
             data: playersForExtractedData.map(p => {
                 const raceScore = rankToScore(finalData[p].ranks[i]);
                 const totalScore = finalData[p].ranks.slice(0, i + 1).reduce((acc, rank) => acc + rankToScore(rank), 0);
@@ -514,7 +489,6 @@ const handleRemoveImage = (indexToRemove: number) => {
     setMergedData(finalData);
     setShockLog(newShockLog);
     setRacePicks(newRacePicks);
-    setPlayerNames(demoPlayers.join(', '));
 
     setTimeout(() => {
         setIsLoading(false);
@@ -542,8 +516,6 @@ const handleRemoveImage = (indexToRemove: number) => {
     setProcessedCount(0);
     
     const imageQueue: ImageQueueItem[] = images.map(file => ({ file, retries: 0 }));
-    let count = 0;
-    const providedPlayerNames = playerNames.split(',').map(name => name.trim()).filter(name => name.length > 0);
     
     const readFileAsDataURL = (file: File): Promise<string> => {
       return new Promise((resolve, reject) => {
@@ -560,7 +532,7 @@ const handleRemoveImage = (indexToRemove: number) => {
             const url = await readFileAsDataURL(file);
             const input: ExtractTableDataFromImageInput = {
                 photoDataUri: url,
-                playerNames: providedPlayerNames.length > 0 ? providedPlayerNames : undefined,
+                playerNames: Object.keys(mergedData).length > 0 ? Object.keys(mergedData) : undefined,
             };
 
             const aiResult = await extractTableDataFromImage(input);
@@ -632,9 +604,10 @@ const handleRemoveImage = (indexToRemove: number) => {
         return;
     }
 
+    // Race by Race logic
     let currentRaceNumber = nextRaceNumber;
     const batchExtractedResults: LocalExtractedData[] = [];
-    let masterPlayerList = providedPlayerNames.length > 0 ? providedPlayerNames : Object.keys(useResultsStore.getState().mergedData);
+    let masterPlayerList = Object.keys(useResultsStore.getState().mergedData);
     
     let processedImageCount = 0;
     for (const item of imageQueue) {
@@ -800,59 +773,6 @@ const handleRemoveImage = (indexToRemove: number) => {
     setImages([]); 
     setIsLoading(false);
   };
-
-  const handleDownloadSingleRaceCsv = (raceData: ExtractedData) => {
-    if (raceData.data.length === 0) {
-      toast({
-        title: 'No data to export',
-        description: 'There are no player entries for this race to export to CSV.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    const allPlayersInApp = Object.values(mergedData);
-    const teams = Array.from(new Set(allPlayersInApp.map(p => p.team).filter(Boolean)));
-    const teamA = teams.find(t => t.includes('BLUE')) || 'Team A';
-    const teamB = teams.find(t => t.includes('RED')) || 'Team B';
-    
-    const shockedPlayerName = shockLog[raceData.raceNumber];
-    const shockedPlayer = allPlayersInApp.find(p => p.playerName === shockedPlayerName);
-    const shockedTeam = shockedPlayer?.team;
-
-    const shocksTeamA = shockedTeam === teamA ? 1 : 0;
-    const shocksTeamB = shockedTeam === teamB ? 1 : 0;
-
-
-    const csvData = raceData.data.map(player => {
-      const masterName = getMasterPlayerName(player.playerName, Object.keys(mergedData));
-      const playerTeam = mergedData[masterName]?.team || 'Unassigned';
-
-      return {
-        timestamp: new Date().toISOString(),
-        race: raceData.raceNumber,
-        team: playerTeam,
-        player: player.playerName,
-        delta: player.rank,
-        score: player.score,
-        shocks_teamA: shocksTeamA,
-        shocks_teamB: shocksTeamB,
-      };
-    });
-
-    if (csvData.length === 0) {
-      toast({
-        title: 'No race data to export',
-        description: 'No individual race scores have been recorded yet.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const headers = ['timestamp', 'race', 'team', 'player', 'delta', 'score', 'shocks_teamA', 'shocks_teamB'];
-    exportToCsv(csvData, `race_${raceData.raceNumber}_details.csv`, headers);
-  };
-  
   
   const handleClearResults = () => {
     setLocalExtractedData([]);
@@ -862,11 +782,16 @@ const handleRemoveImage = (indexToRemove: number) => {
     setProgress(0);
     setProcessedCount(0);
     setNextRaceNumber(1);
-    setPlayerNames('');
     setShockLog({});
     setRacePicks({});
     localStorage.removeItem('scoreParserUsage');
     setUsage({ count: 0 });
+    // Revoke object URLs
+    localExtractedData.forEach(item => {
+        if (item.imageObjectURL) {
+            URL.revokeObjectURL(item.imageObjectURL);
+        }
+    });
     toast({
         title: "Results Cleared",
         description: "The review and download area has been cleared.",
@@ -931,15 +856,15 @@ const handleRemoveImage = (indexToRemove: number) => {
     <div className="flex flex-col h-full bg-background">
         <Header />
         <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
-            <div className="container mx-auto max-w-4xl space-y-8">
-                
-                {/* Step 1 & 2: Configuration and Upload */}
-                {!hasResults && !isLoading && (
-                    <>
+            <div className="container mx-auto max-w-7xl">
+                <div className='grid grid-cols-1 lg:grid-cols-2 gap-8 items-start'>
+
+                    {/* Left Column */}
+                    <div className='space-y-8'>
                         <Card>
                              <CardHeader>
                                 <CardTitle className="flex items-center gap-2"><Settings className="text-primary"/> 1. Configuration</CardTitle>
-                                <CardDescription>Choose upload mode and define race settings before uploading images.</CardDescription>
+                                <CardDescription>Choose upload mode and pre-configure race settings.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="flex items-center space-x-4">
@@ -950,8 +875,8 @@ const handleRemoveImage = (indexToRemove: number) => {
                                             id="upload-mode"
                                             checked={uploadMode === 'summary'}
                                             onCheckedChange={(checked) => {
-                                            setUploadMode(checked ? 'summary' : 'race-by-race');
-                                            setImages([]); 
+                                                setUploadMode(checked ? 'summary' : 'race-by-race');
+                                                setImages([]); 
                                             }}
                                         />
                                         <Label htmlFor="upload-mode">Summary</Label>
@@ -959,72 +884,78 @@ const handleRemoveImage = (indexToRemove: number) => {
                                 </div>
                                 
                                 {uploadMode === 'race-by-race' && (
-                                    <div className="space-y-4">
-                                        <Label className="flex items-center gap-2"><List /> Pre-Race Settings</Label>
-                                         <div className="border rounded-lg overflow-hidden">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead className="w-[10%]">Race</TableHead>
-                                                        <TableHead className="w-[40%]">Track</TableHead>
-                                                        <TableHead className="w-[25%] text-center">Team Pick</TableHead>
-                                                        <TableHead className="w-[25%]">Shock User</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {preloadedRaces.map(({ raceNumber, raceName, pick }) => (
-                                                        <TableRow key={raceNumber}>
-                                                            <TableCell className="font-medium">{raceNumber}</TableCell>
-                                                            <TableCell>
-                                                                <Select
-                                                                    value={raceName}
-                                                                    onValueChange={(value) => handleRaceNameChange(raceNumber, value)}
-                                                                >
-                                                                    <SelectTrigger className="h-8">
-                                                                        <SelectValue placeholder="Select track..." />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        {Object.entries(RACE_TRACKS).map(([abbr, fullName]) => (
-                                                                            <SelectItem key={abbr} value={fullName}>{fullName}</SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className='flex items-center justify-center gap-2'>
-                                                                    <Circle className="h-4 w-4 text-blue-500 fill-blue-500" />
-                                                                    <Slider
-                                                                        value={[pick === 'blue' ? 0 : pick === 'none' ? 1 : 2]}
-                                                                        onValueChange={([val]) => handleTeamPickChange(raceNumber, val)}
-                                                                        min={0} max={2} step={1}
-                                                                        className='w-20'
-                                                                    />
-                                                                    <Circle className="h-4 w-4 text-red-500 fill-red-500" />
-                                                                </div>
-                                                            </TableCell>
-                                                             <TableCell>
-                                                                <Select
-                                                                    value={shockLog[raceNumber]}
-                                                                    onValueChange={(value) => handleToggleShock(raceNumber, value)}
-                                                                    disabled={allPlayers.length === 0}
-                                                                >
-                                                                    <SelectTrigger className="h-8">
-                                                                        <SelectValue placeholder={allPlayers.length === 0 ? "Process races first" : "Select player..."} />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        <SelectItem value="none">None</SelectItem>
-                                                                        {allPlayers.map((player) => (
-                                                                            <SelectItem key={player} value={player}>{player}</SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    </div>
+                                     <Accordion type="single" collapsible>
+                                        <AccordionItem value="item-1">
+                                            <AccordionTrigger>
+                                                <Label className="flex items-center gap-2 text-base"><List /> Pre-Race Settings</Label>
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <div className="border rounded-lg overflow-auto max-h-[50vh]">
+                                                    <Table>
+                                                        <TableHeader className='sticky top-0 bg-background/95 backdrop-blur-sm z-10'>
+                                                            <TableRow>
+                                                                <TableHead className="w-[10%]">Race</TableHead>
+                                                                <TableHead className="w-[40%]">Track</TableHead>
+                                                                <TableHead className="w-[25%] text-center">Team Pick</TableHead>
+                                                                <TableHead className="w-[25%]">Shock User</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {preloadedRaces.map(({ raceNumber, raceName, pick }) => (
+                                                                <TableRow key={raceNumber}>
+                                                                    <TableCell className="font-medium">{raceNumber}</TableCell>
+                                                                    <TableCell>
+                                                                        <Select
+                                                                            value={raceName}
+                                                                            onValueChange={(value) => handleRaceNameChange(raceNumber, value)}
+                                                                        >
+                                                                            <SelectTrigger className="h-8">
+                                                                                <SelectValue placeholder="Select track..." />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                {Object.entries(RACE_TRACKS).map(([abbr, fullName]) => (
+                                                                                    <SelectItem key={abbr} value={fullName}>{fullName}</SelectItem>
+                                                                                ))}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <div className='flex items-center justify-center gap-2'>
+                                                                            <Circle className="h-4 w-4 text-blue-500 fill-blue-500" />
+                                                                            <Slider
+                                                                                value={[pick === 'blue' ? 0 : pick === 'none' ? 1 : 2]}
+                                                                                onValueChange={([val]) => handleTeamPickChange(raceNumber, val)}
+                                                                                min={0} max={2} step={1}
+                                                                                className='w-20'
+                                                                            />
+                                                                            <Circle className="h-4 w-4 text-red-500 fill-red-500" />
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <Select
+                                                                            value={shockLog[raceNumber] || 'none'}
+                                                                            onValueChange={(value) => handleToggleShock(raceNumber, value)}
+                                                                            disabled={allPlayers.length === 0}
+                                                                        >
+                                                                            <SelectTrigger className="h-8">
+                                                                                <SelectValue placeholder={allPlayers.length === 0 ? "Process races first" : "Select player..."} />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="none">None</SelectItem>
+                                                                                {allPlayers.map((player) => (
+                                                                                    <SelectItem key={player} value={player}>{player}</SelectItem>
+                                                                                ))}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                     </Accordion>
                                 )}
                             </CardContent>
                         </Card>
@@ -1038,31 +969,32 @@ const handleRemoveImage = (indexToRemove: number) => {
                             </CardHeader>
                             <CardContent>
                                 <div className="flex flex-col items-center justify-center w-full">
-                                    <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-secondary/50 transition-colors">
+                                    <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-secondary/50 transition-colors">
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-                                            <FileUp className="w-12 h-12 mb-4 text-muted-foreground" />
-                                            <p className="mb-2 text-lg"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                            <p className="text-sm text-muted-foreground">PNG, JPG, or WEBP</p>
+                                            <FileUp className="w-10 h-10 mb-4 text-muted-foreground" />
+                                            <p className="mb-2 text-md"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                                            <p className="text-xs text-muted-foreground">PNG, JPG, or WEBP</p>
                                         </div>
                                         <input id="dropzone-file" type="file" className="hidden" 
                                             onChange={handleImageChange} 
                                             accept="image/png, image/jpeg, image/webp" 
                                             multiple={uploadMode === 'race-by-race'}
-                                            disabled={nextRaceNumber > 12} />
+                                            disabled={nextRaceNumber > 12 && uploadMode === 'race-by-race'} />
                                     </label>
                                 </div>
                                 
                                 {images.length > 0 && (
                                     <div className="mt-6">
-                                        <h3 className="font-semibold mb-2">Selected Files:</h3>
-                                        <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4'>
+                                        <h3 className="font-semibold mb-2">Selected Files ({images.length}):</h3>
+                                        <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4'>
                                             {images.map((file, index) => (
                                                 <div key={index} className="relative group aspect-w-16 aspect-h-9">
                                                     <Image src={URL.createObjectURL(file)} alt={`Uploaded scoreboard ${index+1}`} fill className="rounded-lg object-cover" />
-                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
                                                         <Button
                                                             variant="destructive"
                                                             size="icon"
+                                                            className='h-8 w-8'
                                                             onClick={() => handleRemoveImage(index)}
                                                             aria-label="Remove image"
                                                         >
@@ -1076,168 +1008,120 @@ const handleRemoveImage = (indexToRemove: number) => {
                                 )}
                             </CardContent>
                         </Card>
-                    </>
-                )}
+                    </div>
 
-
-                {/* Loading State */}
-                {isLoading && (
-                    <Card className="shadow-lg min-h-[400px]">
-                        <CardHeader>
-                        <CardTitle>Processing...</CardTitle>
-                        <CardDescription>Please wait a moment.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col items-center justify-center pt-10">
-                        <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
-                        {images.length > 0 ? (
-                            <>
-                            <p className='text-muted-foreground mb-4'>Processing image {processedCount + 1} of {images.length}... ({Math.round(progress)}%)</p>
-                            <Progress value={progress} className="w-3/4" />
-                            </>
-                        ) : (
-                            <p className='text-muted-foreground'>Generating demo data...</p>
-                        )}
-                        </CardContent>
-                    </Card>
-                )}
-
-
-                {/* Results Section */}
-                {hasResults && !isLoading && (
-                    <Card>
-                        <CardHeader>
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <div>
+                    {/* Right Column */}
+                    <div className='space-y-8'>
+                        <Card className='min-h-[600px]'>
+                             <CardHeader>
+                                <div className="flex justify-between items-center">
                                     <CardTitle className='flex items-center gap-2'><ClipboardCheck className="text-primary"/> 3. Results</CardTitle>
-                                    <CardDescription>Review extracted data. You can add more race images if needed.</CardDescription>
-                                </div>
-                                <div className='flex items-center gap-2 flex-wrap'>
-                                    <Button onClick={handleUpdateOrder} size="sm" variant="outline">
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                        Re-order
-                                    </Button>
-                                    {isDemoData && (
-                                        <Button onClick={handleClearResults} variant="destructive" size="sm" disabled={isLoading}>
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            Clear Demo
+                                    {hasResults && !isDemoData && (
+                                        <Button onClick={handleUpdateOrder} size="sm" variant="outline">
+                                            <RefreshCw className="mr-2 h-4 w-4" />
+                                            Re-order
                                         </Button>
                                     )}
                                 </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {error && (
-                                <Alert variant="destructive" className="mb-4">
-                                    {error.includes('overloaded') ? <ServerCrash className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                                    <AlertTitle>Extraction Failed</AlertTitle>
-                                    <AlertDescription>{error}</AlertDescription>
-                                </Alert>
-                            )}
-
-                            {Array.isArray(localExtractedData) && (
-                                <Accordion type="multiple" className="w-full" defaultValue={[`item-${localExtractedData.length - 1}`]}>
-                                  {localExtractedData.map((result, index) => (
-                                    <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
-                                      <AccordionTrigger>
-                                        <div className='flex items-center justify-between w-full pr-4'>
-                                          <div className='flex items-center gap-4'>
-                                            {result.imageObjectURL ? (
-                                              <div className="relative aspect-video w-24">
-                                                <Image src={result.imageObjectURL} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
-                                              </div>
-                                            ) : (
-                                              <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
-                                                <TestTube2 className="h-8 w-8 text-muted-foreground" />
-                                              </div>
-                                            )}
-                                            <div className='text-left'>
-                                              <p className='font-semibold'>
-                                                {`Race ${result.raceNumber}${result.raceName ? `: ${result.raceName}` : ''}`}
-                                              </p>
-                                              <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </AccordionTrigger>
-                                      <AccordionContent>
-                                        <div className='overflow-x-auto max-h-[60vh]'>
-                                          <Table>
-                                            <TableHeader className='sticky top-0 bg-card'>
-                                              <TableRow>
-                                                <TableHead>Player Name</TableHead>
-                                                <TableHead>Team</TableHead>
-                                                <TableHead className="text-right">Total Score</TableHead>
-                                                <TableHead className='text-right'>Race Score</TableHead>
-                                                <TableHead>Rank</TableHead>
-                                              </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                              {result.data.length > 0 ? result.data.map((player, pIndex) => (
-                                                <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
-                                                  <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
-                                                  <TableCell>{player.team || 'N/A'}</TableCell>
-                                                  <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
-                                                  <TableCell className="text-right font-mono">{player.raceScore ?? 'N/A'}</TableCell>
-                                                  <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
-                                                </TableRow>
-                                              )) : (
-                                                <TableRow>
-                                                  <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
-                                                </TableRow>
-                                              )}
-                                            </TableBody>
-                                          </Table>
-                                        </div>
-                                        <div className='space-y-6 mt-4 p-4 border rounded-lg'>
-                                          <div className="grid gap-2">
-                                            <Label>Race Name</Label>
-                                            <Select
-                                              value={result.raceName}
-                                              onValueChange={(value) => handleRaceNameChange(result.raceNumber, value)}
-                                            >
-                                              <SelectTrigger>
-                                                <SelectValue placeholder="Select a race track..." />
-                                              </SelectTrigger>
-                                              <SelectContent>
-                                                {Object.entries(RACE_TRACKS).map(([abbr, fullName]) => (
-                                                  <SelectItem key={abbr} value={fullName}>{fullName}</SelectItem>
-                                                ))}
-                                              </SelectContent>
-                                            </Select>
-                                          </div>
-
-                                          <div className="grid gap-2">
-                                            <Label>Team Pick</Label>
-                                            <div className='flex items-center gap-4'>
-                                              <Circle className="h-5 w-5 text-blue-500 fill-blue-500" />
-                                              <Slider
-                                                value={[racePicks[result.raceNumber] === 'blue' ? 0 : racePicks[result.raceNumber] === 'none' ? 1 : 2]}
-                                                onValueChange={([val]) => handleTeamPickChange(result.raceNumber, val)}
-                                                min={0}
-                                                max={2}
-                                                step={1}
-                                                className='flex-1'
-                                              />
-                                              <Circle className="h-5 w-5 text-red-500 fill-red-500" />
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </AccordionContent>
-                                    </AccordionItem>
-                                  ))}
-                                </Accordion>
-                            )}
-
-                        </CardContent>
-                    </Card>
-                )}
-
+                                <CardDescription>Review extracted data. Add more race images if needed.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                 {isLoading ? (
+                                    <div className="flex flex-col items-center justify-center pt-10">
+                                        <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
+                                        {images.length > 0 ? (
+                                            <>
+                                            <p className='text-muted-foreground mb-4'>Processing image {processedCount + 1} of {images.length}... ({Math.round(progress)}%)</p>
+                                            <Progress value={progress} className="w-3/4" />
+                                            </>
+                                        ) : (
+                                            <p className='text-muted-foreground'>Generating demo data...</p>
+                                        )}
+                                    </div>
+                                ) : !hasResults ? (
+                                    <div className='flex flex-col items-center justify-center text-center text-muted-foreground pt-20'>
+                                        <PanelRightClose className='w-16 h-16 mb-4'/>
+                                        <p className='text-lg font-medium'>No Results Yet</p>
+                                        <p>Process your images to see the results here.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {error && (
+                                            <Alert variant="destructive" className="mb-4">
+                                                {error.includes('overloaded') ? <ServerCrash className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                                <AlertTitle>Extraction Failed</AlertTitle>
+                                                <AlertDescription>{error}</AlertDescription>
+                                            </Alert>
+                                        )}
+                                        <Accordion type="multiple" className="w-full" defaultValue={[`item-${localExtractedData.length - 1}`]}>
+                                        {localExtractedData.map((result, index) => (
+                                            <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
+                                            <AccordionTrigger>
+                                                <div className='flex items-center justify-between w-full pr-4'>
+                                                <div className='flex items-center gap-4'>
+                                                    {result.imageObjectURL ? (
+                                                    <div className="relative aspect-video w-24">
+                                                        <Image src={result.imageObjectURL} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
+                                                    </div>
+                                                    ) : (
+                                                    <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
+                                                        <TestTube2 className="h-8 w-8 text-muted-foreground" />
+                                                    </div>
+                                                    )}
+                                                    <div className='text-left'>
+                                                    <p className='font-semibold'>
+                                                        {`Race ${result.raceNumber}${result.raceName ? `: ${result.raceName}` : ''}`}
+                                                    </p>
+                                                    <p className='text-sm text-muted-foreground'>{result.data.filter(p => p.isValid).length} valid records</p>
+                                                    </div>
+                                                </div>
+                                                </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <div className='overflow-x-auto max-h-[60vh]'>
+                                                <Table>
+                                                    <TableHeader className='sticky top-0 bg-card'>
+                                                    <TableRow>
+                                                        <TableHead>Player Name</TableHead>
+                                                        <TableHead>Team</TableHead>
+                                                        <TableHead className="text-right">Total Score</TableHead>
+                                                        <TableHead className='text-right'>Race Score</TableHead>
+                                                        <TableHead>Rank</TableHead>
+                                                    </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                    {result.data.length > 0 ? result.data.map((player, pIndex) => (
+                                                        <TableRow key={pIndex} className={!player.isValid ? 'bg-destructive/10 hover:bg-destructive/20' : ''}>
+                                                        <TableCell className='font-medium'>{player.playerName || 'N/A'}</TableCell>
+                                                        <TableCell>{player.team || 'N/A'}</TableCell>
+                                                        <TableCell className="text-right font-mono">{player.score ?? 'N/A'}</TableCell>
+                                                        <TableCell className="text-right font-mono">{player.raceScore ?? 'N/A'}</TableCell>
+                                                        <TableCell className='font-bold'>{player.rank || 'N/A'}</TableCell>
+                                                        </TableRow>
+                                                    )) : (
+                                                        <TableRow>
+                                                        <TableCell colSpan={5} className="text-center text-muted-foreground">No data extracted from this image.</TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                    </TableBody>
+                                                </Table>
+                                                </div>
+                                            </AccordionContent>
+                                            </AccordionItem>
+                                        ))}
+                                        </Accordion>
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
             </div>
         </main>
         
         {/* Action Footer */}
         <footer className="sticky bottom-0 bg-background/80 backdrop-blur-sm border-t p-4 z-10">
-            <div className="container mx-auto max-w-4xl flex items-center justify-between">
+            <div className="container mx-auto max-w-7xl flex items-center justify-between">
                 <div className='flex items-center gap-2'>
                   <Button onClick={!isDemoData ? handleGenerateDemoData : handleClearResults} variant="secondary" disabled={isLoading}>
                       <TestTube2 className="mr-2 h-4 w-4" />
@@ -1251,7 +1135,7 @@ const handleRemoveImage = (indexToRemove: number) => {
                             Clear All
                         </Button>
                     )}
-                    {images.length > 0 && !hasResults ? (
+                    {images.length > 0 ? (
                         <Button onClick={handleExtractData} className="min-w-[150px]" disabled={isLoading}>
                             {isLoading ? (
                                 <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Analyzing...</>
@@ -1281,3 +1165,5 @@ const handleRemoveImage = (indexToRemove: number) => {
     </div>
   );
 }
+
+    
