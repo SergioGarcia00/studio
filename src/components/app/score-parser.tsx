@@ -112,14 +112,6 @@ export default function ScoreParser() {
  const { toast } = useToast();
  const [usage, setUsage] = useState({ count: 0 });
  
-  const localExtractedData = useMemo(() => {
-    return extractedData.map(d => {
-        // Since we don't store the blob URL, we can't recreate it.
-        // We'll just pass the filename for identification.
-        return { ...d, imageObjectURL: undefined };
-    });
-  }, [extractedData]);
-
  useEffect(() => {
     const lastRace = extractedData.reduce((max, d) => Math.max(max, d.raceNumber), 0);
     setNextRaceNumber(lastRace + 1);
@@ -794,12 +786,22 @@ const handleRemoveImage = (indexToRemove: number) => {
   }
 
   const handleRaceNameChange = (raceNumberToUpdate: number, newRaceName: string) => {
-    const dataCopy = JSON.parse(JSON.stringify(extractedData)) as LocalExtractedData[];
+    const dataCopy = [...extractedData];
     const raceToUpdate = dataCopy.find((item) => item.raceNumber === raceNumberToUpdate);
     if (raceToUpdate) {
         raceToUpdate.raceName = newRaceName;
+    } else {
+        // If the race doesn't exist, we might need to create a placeholder
+        const placeholder: ExtractedData = {
+            imageUrl: '',
+            filename: `Race ${raceNumberToUpdate}`,
+            raceNumber: raceNumberToUpdate,
+            raceName: newRaceName,
+            data: [],
+        };
+        dataCopy.push(placeholder);
     }
-    setExtractedData(dataCopy);
+    setExtractedData(dataCopy.sort((a,b) => a.raceNumber - b.raceNumber));
   };
 
 
@@ -821,28 +823,28 @@ const handleRemoveImage = (indexToRemove: number) => {
 
   const allPlayers = useMemo(() => Object.keys(mergedData).sort(), [mergedData]);
   const isComplete = useMemo(() => {
-    if (localExtractedData.length === 1 && localExtractedData[0].raceName === 'Final Summary') {
+    if (extractedData.length === 1 && extractedData[0].raceName === 'Final Summary') {
         return true;
     }
-    const validRaces = localExtractedData.filter(d => d.data.length > 0);
+    const validRaces = extractedData.filter(d => d.data.length > 0);
     return validRaces.length === 12;
-  }, [localExtractedData]);
+  }, [extractedData]);
   
-  const isDemoData = useMemo(() => Array.isArray(extractedData) && extractedData.length > 0 && extractedData.every(d => !d.imageUrl), [extractedData]);
+  const isDemoData = useMemo(() => Array.isArray(extractedData) && extractedData.length > 0 && extractedData.every(d => d.imageUrl === '' && d.filename.startsWith('Demo')), [extractedData]);
 
-  const hasResults = Array.isArray(localExtractedData) && localExtractedData.length > 0;
+  const hasResults = Array.isArray(extractedData) && extractedData.length > 0;
 
   const preloadedRaces = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
       const raceNumber = i + 1;
-      const existingData = localExtractedData.find(d => d.raceNumber === raceNumber);
+      const existingData = extractedData.find(d => d.raceNumber === raceNumber);
       return {
         raceNumber: raceNumber,
         raceName: existingData?.raceName || '',
         pick: racePicks[raceNumber] || 'none',
       };
     });
-  }, [localExtractedData, racePicks]);
+  }, [extractedData, racePicks]);
 
 
   return (
@@ -1046,19 +1048,19 @@ const handleRemoveImage = (indexToRemove: number) => {
                                                 <AlertDescription>{error}</AlertDescription>
                                             </Alert>
                                         )}
-                                        <Accordion type="multiple" className="w-full" defaultValue={[`item-${localExtractedData.length - 1}`]}>
-                                        {localExtractedData.map((result, index) => (
+                                        <Accordion type="multiple" className="w-full" defaultValue={[`item-${extractedData.length - 1}`]}>
+                                        {extractedData.map((result, index) => (
                                             <AccordionItem value={`item-${index}`} key={`${result.filename}-${index}`}>
                                             <AccordionTrigger>
                                                 <div className='flex items-center justify-between w-full pr-4'>
                                                 <div className='flex items-center gap-4'>
-                                                    {result.imageObjectURL ? (
-                                                    <div className="relative aspect-video w-24">
-                                                        <Image src={result.imageObjectURL} alt={`Scoreboard ${index + 1}`} fill className="rounded-md object-contain" />
-                                                    </div>
+                                                    {isDemoData ? (
+                                                        <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
+                                                            <TestTube2 className="h-8 w-8 text-muted-foreground" />
+                                                        </div>
                                                     ) : (
-                                                    <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
-                                                        <TestTube2 className="h-8 w-8 text-muted-foreground" />
+                                                     <div className="relative aspect-video w-24 flex items-center justify-center bg-secondary rounded-md">
+                                                        <List className="h-8 w-8 text-muted-foreground" />
                                                     </div>
                                                     )}
                                                     <div className='text-left'>
@@ -1158,5 +1160,3 @@ const handleRemoveImage = (indexToRemove: number) => {
     </div>
   );
 }
-
-    
