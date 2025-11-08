@@ -1276,5 +1276,3 @@ const handleRemoveImage = (indexToRemove: number) => {
     </div>
   );
 }
-
-    

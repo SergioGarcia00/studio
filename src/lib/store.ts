@@ -45,5 +45,3 @@ export const useResultsStore = create<ResultsState>()(
     }
   )
 );
-
-    
