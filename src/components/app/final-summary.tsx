@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useResultsStore } from '@/lib/store';
 import type { Player } from '@/ai/types';
 import { format } from 'date-fns';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { ImageDown, ClipboardCopy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const FinalSummary = () => {
-    const { mergedData, leagueTitle, teams, setTeams, setMergedData } = useResultsStore();
+    const { mergedData, leagueTitle, teams } = useResultsStore();
     const data = Object.values(mergedData) as Player[];
     const printRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -94,7 +94,7 @@ const FinalSummary = () => {
             return `${teamName} - ${teamTotal}\n${playersText}`;
         };
 
-        const sortedTeams = [winningTeamData, losingTeamData];
+        const sortedTeams = [winningTeamData, losingTeamData].filter(Boolean) as { key: string, players: Player[] }[];
         const textToCopy = sortedTeams.map(formatTeam).join('\n\n');
         
         navigator.clipboard.writeText(textToCopy).then(() => {
@@ -116,7 +116,7 @@ const FinalSummary = () => {
         return (
             <Card className="max-w-4xl mx-auto">
                 <CardHeader>
-                    <CardHeader>No Summary Data</CardHeader>
+                    <CardTitle>No Summary Data</CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center h-64 text-center text-gray-400">
                     <p>Process 12 races or a summary image to see the results.</p>
@@ -125,13 +125,11 @@ const FinalSummary = () => {
         );
     }
     
-    const winningTeamConfig = winningTeamData?.key.toLowerCase().includes('blue') ? teams.blue : teams.red;
-    const losingTeamConfig = losingTeamData?.key.toLowerCase().includes('blue') ? teams.blue : teams.red;
+    const winningTeamConfig = winningTeamData ? (winningTeamData.key.toLowerCase().includes('blue') ? teams.blue : teams.red) : null;
+    const losingTeamConfig = losingTeamData ? (losingTeamData.key.toLowerCase().includes('blue') ? teams.blue : teams.red) : null;
 
-    const winningTeamColorStyle = { color: winningTeamConfig.color };
-    const losingTeamColorStyle = { color: losingTeamConfig.color };
-
-
+    const winningTeamColorStyle = winningTeamConfig ? { color: winningTeamConfig.color } : {};
+    
     return (
         <div className="max-w-4xl mx-auto">
             <div className="flex justify-end items-center mb-4 gap-2">
@@ -153,7 +151,7 @@ const FinalSummary = () => {
                     <CardContent className="p-0">
                         <div className="grid grid-cols-[1fr_2fr_1fr] items-center gap-8">
                             {/* Winning Team */}
-                            {winningTeamData && (
+                            {winningTeamData && winningTeamConfig && (
                                 <>
                                     <div className="text-8xl font-bold justify-self-center" style={winningTeamColorStyle}>
                                         {winningTeamConfig.name}
@@ -186,7 +184,7 @@ const FinalSummary = () => {
 
                         <div className="grid grid-cols-[1fr_2fr_1fr] items-center gap-8">
                             {/* Losing Team */}
-                            {losingTeamData && (
+                            {losingTeamData && losingTeamConfig && (
                                 <>
                                     <div className="text-8xl font-bold text-muted-foreground justify-self-center">
                                         {losingTeamConfig.name}
