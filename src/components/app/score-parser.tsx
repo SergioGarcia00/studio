@@ -86,6 +86,11 @@ const RANK_TO_SCORE: { [key: string]: number } = {
  '7th': 6, '8th': 5, '9th': 4, '10th': 3, '11th': 2, '12th': 1,
 };
 
+const rankToScore = (rank: string | null): number => {
+    if (!rank) return 1; // Treat null rank as 12th place for score calculation
+    return RANK_TO_SCORE[rank] || 1;
+};
+
 const sumRanks = (arr: (string|null)[]) => arr.reduce((acc: number, rank) => acc + rankToScore(rank), 0);
 
 export default function ScoreParser() {
@@ -1165,5 +1170,3 @@ const handleRemoveImage = (indexToRemove: number) => {
     </div>
   );
 }
-
-    
