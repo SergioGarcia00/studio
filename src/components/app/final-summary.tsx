@@ -129,6 +129,7 @@ const FinalSummary = () => {
     const losingTeamConfig = losingTeamData ? (losingTeamData.key.toLowerCase().includes('blue') ? teams.blue : teams.red) : null;
 
     const winningTeamColorStyle = winningTeamConfig ? { color: winningTeamConfig.color } : {};
+    const losingTeamColorStyle = losingTeamConfig ? { color: losingTeamConfig.color } : {};
     
     return (
         <div className="max-w-4xl mx-auto">
@@ -186,13 +187,13 @@ const FinalSummary = () => {
                             {/* Losing Team */}
                             {losingTeamData && losingTeamConfig && (
                                 <>
-                                    <div className="text-8xl font-bold text-muted-foreground justify-self-center">
+                                    <div className="text-8xl font-bold justify-self-center opacity-70" style={losingTeamColorStyle}>
                                         {losingTeamConfig.name}
                                     </div>
                                     <div className="space-y-3">
                                         {losingTeamData.players.map(player => (
                                             <div key={player.playerName} className="flex justify-between items-baseline text-2xl">
-                                                <span className="font-semibold text-foreground">{player.playerName}</span>
+                                                <span className="font-semibold opacity-70" style={losingTeamColorStyle}>{player.playerName}</span>
                                                 <div>
                                                     <span className="font-mono font-medium text-foreground">{player.total}</span>
                                                     <span className="text-lg text-muted-foreground ml-4 w-12 inline-block text-right">{player.rank}</span>
@@ -200,7 +201,7 @@ const FinalSummary = () => {
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="text-9xl font-bold text-muted-foreground justify-self-center">
+                                    <div className="text-9xl font-bold justify-self-center opacity-70" style={losingTeamColorStyle}>
                                         {losingTeamData.players.reduce((acc, p) => acc + (p.total || 0), 0)}
                                     </div>
                                 </>
