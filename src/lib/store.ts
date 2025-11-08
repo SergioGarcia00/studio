@@ -23,7 +23,7 @@ export const useResultsStore = create<ResultsState>()(
       setShockLog: (log) => set(state => ({ shockLog: typeof log === 'function' ? log(state.shockLog) : log })),
       handleToggleShock: (raceNumber, playerName) => set(state => {
         const newLog = { ...state.shockLog };
-        if (newLog[raceNumber] === playerName) {
+        if (newLog[raceNumber] === playerName || playerName === 'none') {
           delete newLog[raceNumber];
         } else {
           newLog[raceNumber] = playerName;
@@ -31,17 +31,15 @@ export const useResultsStore = create<ResultsState>()(
         return { shockLog: newLog };
       }),
       extractedData: [],
-      setExtractedData: (data) => {
-        // Create a new array with imageUrl removed to save space
-        const sanitizedData = data.map(({ imageUrl, ...rest }) => rest);
-        set({ extractedData: sanitizedData });
-      },
+      setExtractedData: (data) => set({ extractedData: data }),
       racePicks: {},
       setRacePicks: (picks) => set(state => ({ racePicks: typeof picks === 'function' ? picks(state.racePicks) : picks })),
     }),
     {
       name: 'race-results-storage', // name of the item in the storage (must be unique)
-      storage: createJSONStorage(() => sessionStorage), // (optional) by default, 'localStorage' is used
+      storage: createJSONStorage(() => localStorage), // (optional) by default, 'localStorage' is used
     }
   )
 );
+
+    

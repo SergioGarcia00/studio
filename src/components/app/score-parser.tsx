@@ -70,7 +70,8 @@ type ImageQueueItem = {
  retries: number;
 };
 
-type LocalExtractedData = Omit<ExtractedData, 'imageUrl'> & { imageObjectURL?: string };
+// Add imageObjectURL to ExtractedData for local display
+type LocalExtractedData = ExtractedData & { imageObjectURL?: string };
 
 
 type Usage = {
@@ -110,23 +111,19 @@ export default function ScoreParser() {
  const [nextRaceNumber, setNextRaceNumber] = useState(1);
  const { toast } = useToast();
  const [usage, setUsage] = useState({ count: 0 });
- const [localExtractedData, setLocalExtractedData] = useState<LocalExtractedData[]>([]);
+ 
+  const localExtractedData = useMemo(() => {
+    return extractedData.map(d => {
+        // Since we don't store the blob URL, we can't recreate it.
+        // We'll just pass the filename for identification.
+        return { ...d, imageObjectURL: undefined };
+    });
+  }, [extractedData]);
 
  useEffect(() => {
-    // Sync local state with persisted store on mount
-    const storedData = useResultsStore.getState().extractedData;
-    if (Array.isArray(storedData)) {
-      const regeneratedData = storedData.map(d => ({ ...d }));
-      setLocalExtractedData(regeneratedData);
-      const lastRace = regeneratedData.reduce((max, d) => Math.max(max, d.raceNumber), 0);
-      setNextRaceNumber(lastRace + 1);
-    }
-  }, []);
-
-  useEffect(() => {
-    // When local data changes, update the zustand store (without image data)
-    setExtractedData(localExtractedData);
-  }, [localExtractedData, setExtractedData]);
+    const lastRace = extractedData.reduce((max, d) => Math.max(max, d.raceNumber), 0);
+    setNextRaceNumber(lastRace + 1);
+  }, [extractedData]);
 
 
   useEffect(() => {
@@ -471,6 +468,7 @@ const handleRemoveImage = (indexToRemove: number) => {
         }
 
         newExtractedData.push({
+            imageUrl: '',
             filename: `Demo Race ${i + 1}`,
             raceNumber: i + 1,
             raceName: allTrackNames[i % allTrackNames.length],
@@ -490,7 +488,7 @@ const handleRemoveImage = (indexToRemove: number) => {
         });
     }
    
-    setLocalExtractedData(newExtractedData);
+    setExtractedData(newExtractedData);
     setMergedData(finalData);
     setShockLog(newShockLog);
     setRacePicks(newRacePicks);
@@ -571,8 +569,8 @@ const handleRemoveImage = (indexToRemove: number) => {
             setMergedData(newMergedData);
             setShockLog(newShockLog);
             
-            const summaryExtractedData: LocalExtractedData = {
-                imageObjectURL: URL.createObjectURL(file),
+            const summaryExtractedData: ExtractedData = {
+                imageUrl: '',
                 filename: file.name,
                 raceNumber: 1, 
                 raceName: 'Final Summary',
@@ -584,8 +582,7 @@ const handleRemoveImage = (indexToRemove: number) => {
                     isValid: true,
                 })),
             };
-            setLocalExtractedData([summaryExtractedData]);
-            setNextRaceNumber(13);
+            setExtractedData([summaryExtractedData]);
             incrementUsage();
 
             toast({
@@ -611,7 +608,7 @@ const handleRemoveImage = (indexToRemove: number) => {
 
     // Race by Race logic
     let currentRaceNumber = nextRaceNumber;
-    const batchExtractedResults: LocalExtractedData[] = [];
+    const batchExtractedResults: ExtractedData[] = [];
     let masterPlayerList = Object.keys(useResultsStore.getState().mergedData);
     
     let processedImageCount = 0;
@@ -662,8 +659,8 @@ const handleRemoveImage = (indexToRemove: number) => {
             };
         });
 
-        const newExtractedResult: LocalExtractedData = {
-          imageObjectURL: URL.createObjectURL(file),
+        const newExtractedResult: ExtractedData = {
+          imageUrl: '',
           filename: file.name,
           raceNumber: raceForThisImage,
           data: finalRaceData,
@@ -690,8 +687,8 @@ const handleRemoveImage = (indexToRemove: number) => {
                   description: `Retrying '${file.name}'...`,
               });
           } else {
-              const errorResult: LocalExtractedData = {
-                  imageObjectURL: URL.createObjectURL(file),
+              const errorResult: ExtractedData = {
+                  imageUrl: '',
                   filename: file.name,
                   raceNumber: raceForThisImage,
                   data: [],
@@ -710,9 +707,9 @@ const handleRemoveImage = (indexToRemove: number) => {
       setProgress((processedImageCount / images.length) * 100);
     }
     
-    const uniqueResults: LocalExtractedData[] = [];
+    const uniqueResults: ExtractedData[] = [];
     const existingSignatures = new Set(
-        localExtractedData.map(res => {
+        extractedData.map(res => {
             if (res.data.length === 0) return null;
             const sortedPlayers = [...res.data].sort((a,b) => a.playerName.localeCompare(b.playerName));
             return sortedPlayers.map(p => `${p.playerName}:${p.score}`).join(',');
@@ -757,7 +754,7 @@ const handleRemoveImage = (indexToRemove: number) => {
     if (finalUniqueResults.length > 0) {
         finalUniqueResults.sort((a,b) => a.raceNumber - b.raceNumber);
 
-        setLocalExtractedData(prev => [...prev, ...finalUniqueResults].sort((a, b) => a.raceNumber - b.raceNumber));
+        setExtractedData([...extractedData, ...finalUniqueResults].sort((a, b) => a.raceNumber - b.raceNumber));
 
         let newMergedData = useResultsStore.getState().mergedData;
         for (const result of finalUniqueResults) {
@@ -768,7 +765,6 @@ const handleRemoveImage = (indexToRemove: number) => {
         setMergedData(newMergedData);
     }
 
-    setNextRaceNumber(raceNumberCounter);
 
     toast({
       title: 'Extraction Complete',
@@ -780,7 +776,7 @@ const handleRemoveImage = (indexToRemove: number) => {
   };
   
   const handleClearResults = () => {
-    setLocalExtractedData([]);
+    setExtractedData([]);
     setMergedData({});
     setImages([]);
     setError(null);
@@ -791,12 +787,6 @@ const handleRemoveImage = (indexToRemove: number) => {
     setRacePicks({});
     localStorage.removeItem('scoreParserUsage');
     setUsage({ count: 0 });
-    // Revoke object URLs
-    localExtractedData.forEach(item => {
-        if (item.imageObjectURL) {
-            URL.revokeObjectURL(item.imageObjectURL);
-        }
-    });
     toast({
         title: "Results Cleared",
         description: "The review and download area has been cleared.",
@@ -804,19 +794,17 @@ const handleRemoveImage = (indexToRemove: number) => {
   }
 
   const handleRaceNameChange = (raceNumberToUpdate: number, newRaceName: string) => {
-    setLocalExtractedData(currentData => {
-        const dataCopy = JSON.parse(JSON.stringify(currentData)) as LocalExtractedData[];
-        const raceToUpdate = dataCopy.find((item) => item.raceNumber === raceNumberToUpdate);
-        if (raceToUpdate) {
-            raceToUpdate.raceName = newRaceName;
-        }
-        return dataCopy;
-    });
+    const dataCopy = JSON.parse(JSON.stringify(extractedData)) as LocalExtractedData[];
+    const raceToUpdate = dataCopy.find((item) => item.raceNumber === raceNumberToUpdate);
+    if (raceToUpdate) {
+        raceToUpdate.raceName = newRaceName;
+    }
+    setExtractedData(dataCopy);
   };
 
 
   const handleUpdateOrder = () => {
-      setLocalExtractedData(currentData => [...currentData].sort((a, b) => a.raceNumber - b.raceNumber));
+      setExtractedData([...extractedData].sort((a, b) => a.raceNumber - b.raceNumber));
       toast({
         title: 'Race Order Updated',
         description: 'The race list has been re-sorted based on the race numbers.',
@@ -840,7 +828,7 @@ const handleRemoveImage = (indexToRemove: number) => {
     return validRaces.length === 12;
   }, [localExtractedData]);
   
-  const isDemoData = useMemo(() => Array.isArray(localExtractedData) && localExtractedData.length > 0 && localExtractedData.every(d => !d.imageObjectURL), [localExtractedData]);
+  const isDemoData = useMemo(() => Array.isArray(extractedData) && extractedData.length > 0 && extractedData.every(d => !d.imageUrl), [extractedData]);
 
   const hasResults = Array.isArray(localExtractedData) && localExtractedData.length > 0;
 
@@ -1170,3 +1158,5 @@ const handleRemoveImage = (indexToRemove: number) => {
     </div>
   );
 }
+
+    
