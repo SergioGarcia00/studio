@@ -40,7 +40,9 @@ const rankToScore = (rank: string | null): number => {
 
 const getRankClass = (rank: string | null) => {
     if (!rank) return '';
-    if (rank === '1st' || rank === '2nd' || rank === '3rd') return 'bg-primary text-primary-foreground font-bold';
+    if (rank === '1st') return 'bg-yellow-500/80 text-black font-bold';
+    if (rank === '2nd') return 'bg-slate-400/70 text-black font-bold';
+    if (rank === '3rd') return 'bg-orange-600/60 text-white font-bold';
     return '';
 };
 
@@ -95,7 +97,7 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
     
     const teamOrder = Object.keys(groups).sort((a, b) => {
         const aIsBlue = a.toLowerCase().includes('blue');
-        const bIsBlue = b.toLowerCase().includes('blue');
+        const bIsBlue = b.toLowerCase().includes('red');
         if (aIsBlue && !bIsBlue) return -1;
         if (!aIsBlue && bIsBlue) return 1;
         return 0;
@@ -293,33 +295,27 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     <TableCell className="font-medium sticky left-0 bg-card/95">{player.playerName}</TableCell>
                     {player.ranks.slice(0,4).map((rank, sIndex) => (
                         <TableCell key={sIndex} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-destructive/50')}>
-                          <div className='flex items-center justify-center gap-1'>
+                          <div className='flex items-center justify-center gap-1 cursor-pointer' onClick={() => handleToggleShock(sIndex + 1, player.playerName)}>
                             {rank ?? '12th'}
-                             <Button variant="ghost" size="icon" className='h-5 w-5' onClick={() => handleToggleShock(sIndex + 1, player.playerName)}>
-                                <Zap className={cn('h-3 w-3', shockLog[sIndex + 1] === player.playerName ? 'text-primary fill-primary' : 'text-muted-foreground/50')} />
-                            </Button>
+                            {shockLog[sIndex + 1] === player.playerName && <Zap className='h-3 w-3 text-primary fill-primary' />}
                           </div>
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[3] !== null ? player.gp1 : '-'}</TableCell>
                     {player.ranks.slice(4,8).map((rank, sIndex) => (
                         <TableCell key={sIndex+4} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-destructive/50')}>
-                            <div className='flex items-center justify-center gap-1'>
+                            <div className='flex items-center justify-center gap-1 cursor-pointer' onClick={() => handleToggleShock(sIndex + 5, player.playerName)}>
                               {rank ?? '12th'}
-                               <Button variant="ghost" size="icon" className='h-5 w-5' onClick={() => handleToggleShock(sIndex + 5, player.playerName)}>
-                                <Zap className={cn('h-3 w-3', shockLog[sIndex + 5] === player.playerName ? 'text-primary fill-primary' : 'text-muted-foreground/50')} />
-                              </Button>
+                              {shockLog[sIndex + 5] === player.playerName && <Zap className='h-3 w-3 text-primary fill-primary' />}
                             </div>
                         </TableCell>
                     ))}
                     <TableCell className="text-center font-mono font-bold bg-muted/50">{player.ranks[7] !== null ? player.gp2 : '-'}</TableCell>
                      {player.ranks.slice(8,12).map((rank, sIndex) => (
                         <TableCell key={sIndex+8} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-destructive/50')}>
-                            <div className='flex items-center justify-center gap-1'>
+                            <div className='flex items-center justify-center gap-1 cursor-pointer' onClick={() => handleToggleShock(sIndex + 9, player.playerName)}>
                               {rank ?? '12th'}
-                               <Button variant="ghost" size="icon" className='h-5 w-5' onClick={() => handleToggleShock(sIndex + 9, player.playerName)}>
-                                <Zap className={cn('h-3 w-3', shockLog[sIndex + 9] === player.playerName ? 'text-primary fill-primary' : 'text-muted-foreground/50')} />
-                              </Button>
+                              {shockLog[sIndex + 9] === player.playerName && <Zap className='h-3 w-3 text-primary fill-primary' />}
                             </div>
                         </TableCell>
                     ))}
