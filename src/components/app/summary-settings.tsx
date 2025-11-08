@@ -6,30 +6,35 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 const SummarySettings = () => {
     const { 
-        leagueTitle, setLeagueTitle,
-        teams, setTeams,
+        leagueTitle: storeLeagueTitle, setLeagueTitle,
+        teams: storeTeams, setTeams,
     } = useResultsStore();
     
-    const [localLeagueTitle, setLocalLeagueTitle] = useState(leagueTitle);
+    const [localLeagueTitle, setLocalLeagueTitle] = useState(storeLeagueTitle);
+    const [localTeams, setLocalTeams] = useState(storeTeams);
     
-    // Use a local state for team edits to avoid performance issues on color picker drag
-    // but read directly from the store for rendering.
-    // The onBlur/onChange will write back to the store.
     const handleTeamNameChange = (team: 'blue' | 'red', name: string) => {
-        setTeams(currentTeams => ({
+        setLocalTeams(currentTeams => ({
             ...currentTeams,
             [team]: { ...currentTeams[team], name }
         }));
     };
 
     const handleTeamColorChange = (team: 'blue' | 'red', color: string) => {
-        setTeams(currentTeams => ({
+        setLocalTeams(currentTeams => ({
             ...currentTeams,
             [team]: { ...currentTeams[team], color }
         }));
+    };
+
+    const handleRefresh = () => {
+        setLeagueTitle(localLeagueTitle);
+        setTeams(localTeams);
     };
 
     return (
@@ -48,7 +53,6 @@ const SummarySettings = () => {
                                     id="league-title" 
                                     value={localLeagueTitle}
                                     onChange={(e) => setLocalLeagueTitle(e.target.value)}
-                                    onBlur={() => setLeagueTitle(localLeagueTitle)}
                                 />
                             </div>
                         </AccordionContent>
@@ -60,7 +64,7 @@ const SummarySettings = () => {
                                 <div className="space-y-2">
                                     <Label>Blue Team Name</Label>
                                     <Input 
-                                        value={teams.blue.name}
+                                        value={localTeams.blue.name}
                                         onChange={(e) => handleTeamNameChange('blue', e.target.value)}
                                     />
                                 </div>
@@ -68,7 +72,7 @@ const SummarySettings = () => {
                                     <Label>Blue Team Color</Label>
                                     <Input 
                                         type="color"
-                                        value={teams.blue.color}
+                                        value={localTeams.blue.color}
                                         onChange={(e) => handleTeamColorChange('blue', e.target.value)}
                                         className="w-full"
                                     />
@@ -76,7 +80,7 @@ const SummarySettings = () => {
                                 <div className="space-y-2">
                                     <Label>Red Team Name</Label>
                                     <Input 
-                                        value={teams.red.name}
+                                        value={localTeams.red.name}
                                         onChange={(e) => handleTeamNameChange('red', e.target.value)}
                                     />
 
@@ -85,7 +89,7 @@ const SummarySettings = () => {
                                     <Label>Red Team Color</Label>
                                     <Input 
                                         type="color"
-                                        value={teams.red.color}
+                                        value={localTeams.red.color}
                                         onChange={(e) => handleTeamColorChange('red', e.target.value)}
                                         className="w-full"
                                     />
@@ -94,6 +98,12 @@ const SummarySettings = () => {
                         </AccordionContent>
                     </AccordionItem>
                 </Accordion>
+                <div className="flex justify-end mt-6">
+                    <Button onClick={handleRefresh}>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Refresh Table
+                    </Button>
+                </div>
             </CardContent>
         </Card>
     );
