@@ -901,7 +901,7 @@ const handleRemoveImage = (indexToRemove: number) => {
     }));
   };
 
-  const allPlayers = useMemo(() => Object.values(mergedData), [mergedData]);
+  const allPlayers = useMemo(() => Object.keys(mergedData).sort(), [mergedData]);
   const isComplete = useMemo(() => {
     if (localExtractedData.length === 1 && localExtractedData[0].raceName === 'Final Summary') {
         return true;
@@ -957,20 +957,7 @@ const handleRemoveImage = (indexToRemove: number) => {
                                         <Label htmlFor="upload-mode">Summary</Label>
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="flex items-center gap-2"><Users /> Optional: Player Names</Label>
-                                    <Textarea
-                                        placeholder="e.g. Player 1, Player 2, Player 3, ..."
-                                        value={playerNames}
-                                        onChange={(e) => setPlayerNames(e.target.value)}
-                                        rows={3}
-                                        disabled={isLoading || hasResults}
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        Providing a comma-separated list of the 12 player names helps improve the accuracy of the OCR, especially for the first race.
-                                    </p>
-                                </div>
-
+                                
                                 {uploadMode === 'race-by-race' && (
                                     <div className="space-y-4">
                                         <Label className="flex items-center gap-2"><List /> Pre-Race Settings</Label>
@@ -978,9 +965,10 @@ const handleRemoveImage = (indexToRemove: number) => {
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead className="w-1/4">Race</TableHead>
-                                                        <TableHead className="w-1/2">Track</TableHead>
-                                                        <TableHead className="w-1/4 text-center">Team Pick</TableHead>
+                                                        <TableHead className="w-[10%]">Race</TableHead>
+                                                        <TableHead className="w-[40%]">Track</TableHead>
+                                                        <TableHead className="w-[25%] text-center">Team Pick</TableHead>
+                                                        <TableHead className="w-[25%]">Shock User</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -1013,6 +1001,23 @@ const handleRemoveImage = (indexToRemove: number) => {
                                                                     />
                                                                     <Circle className="h-4 w-4 text-red-500 fill-red-500" />
                                                                 </div>
+                                                            </TableCell>
+                                                             <TableCell>
+                                                                <Select
+                                                                    value={shockLog[raceNumber]}
+                                                                    onValueChange={(value) => handleToggleShock(raceNumber, value)}
+                                                                    disabled={allPlayers.length === 0}
+                                                                >
+                                                                    <SelectTrigger className="h-8">
+                                                                        <SelectValue placeholder={allPlayers.length === 0 ? "Process races first" : "Select player..."} />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="none">None</SelectItem>
+                                                                        {allPlayers.map((player) => (
+                                                                            <SelectItem key={player} value={player}>{player}</SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
