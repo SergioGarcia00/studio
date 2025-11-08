@@ -1,18 +1,19 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useResultsStore } from '@/lib/store';
 import type { Player } from '@/ai/types';
 import { format } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { ImageDown, ClipboardCopy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import html2canvas from 'html2canvas';
 import { useToast } from '@/hooks/use-toast';
 
+
 const FinalSummary = () => {
-    const { mergedData } = useResultsStore();
+    const { mergedData, leagueTitle, teams, setTeams, setMergedData } = useResultsStore();
     const data = Object.values(mergedData) as Player[];
     const printRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
@@ -22,18 +23,12 @@ const FinalSummary = () => {
         const groups: { [key: string]: Player[] } = {};
         
         validPlayers.forEach(player => {
-          const team = player.team || 'Unassigned';
-          if (!groups[team]) {
-            groups[team] = [];
+          const teamName = player.team || 'Unassigned';
+          if (!groups[teamName]) {
+            groups[teamName] = [];
           }
-          groups[team].push(player);
+          groups[teamName].push(player);
         });
-
-        const rankToNumber = (rank: string | null): number => {
-            if (!rank) return 99;
-            const num = parseInt(rank.replace(/\D/g, ''), 10);
-            return isNaN(num) ? 99 : num;
-        };
     
         Object.keys(groups).forEach(team => {
             groups[team].sort((a, b) => (a.total ?? 0) > (b.total ?? 0) ? -1 : 1);
@@ -41,24 +36,22 @@ const FinalSummary = () => {
         
         return groups;
     }, [data]);
-
-    const teamNames = Object.keys(groupedData);
-    const teamA = teamNames.find(name => name.toLowerCase().includes('blue')) || teamNames[0];
-    const teamB = teamNames.find(name => name.toLowerCase().includes('red')) || teamNames[1];
-
-    const teamAData = teamA ? { name: teamA, players: groupedData[teamA] } : null;
-    const teamBData = teamB ? { name: teamB, players: groupedData[teamB] } : null;
     
-    const teamAScore = teamAData ? teamAData.players.reduce((acc, p) => acc + (p.total || 0), 0) : 0;
-    const teamBScore = teamBData ? teamBData.players.reduce((acc, p) => acc + (p.total || 0), 0) : 0;
+    const teamKeys = Object.keys(groupedData);
+
+    const blueTeamKey = teamKeys.find(name => name.toLowerCase().includes('blue')) || (teamKeys.length > 0 && !teamKeys.find(name => name.toLowerCase().includes('red')) ? teamKeys[0] : undefined);
+    const redTeamKey = teamKeys.find(name => name.toLowerCase().includes('red')) || (teamKeys.length > 1 && blueTeamKey ? teamKeys.find(k => k !== blueTeamKey) : undefined);
+
+    const blueTeamData = blueTeamKey ? { key: blueTeamKey, players: groupedData[blueTeamKey] } : null;
+    const redTeamData = redTeamKey ? { key: redTeamKey, players: groupedData[redTeamKey] } : null;
+
+    const blueTeamScore = blueTeamData ? blueTeamData.players.reduce((acc, p) => acc + (p.total || 0), 0) : 0;
+    const redTeamScore = redTeamData ? redTeamData.players.reduce((acc, p) => acc + (p.total || 0), 0) : 0;
     
-    const winningTeam = teamAScore >= teamBScore ? teamAData : teamBData;
-    const losingTeam = teamAScore < teamBScore ? teamAData : teamBData;
+    const winningTeamData = blueTeamScore >= redTeamScore ? blueTeamData : redTeamData;
+    const losingTeamData = blueTeamScore < redTeamScore ? blueTeamData : redTeamData;
 
-    const scoreDifference = Math.abs(teamAScore - teamBScore);
-
-    const winningTeamColor = winningTeam?.name.toLowerCase().includes('blue') ? 'text-blue-400' : 'text-red-500';
-    const losingTeamColor = losingTeam?.name.toLowerCase().includes('blue') ? 'text-blue-400' : 'text-red-500';
+    const scoreDifference = Math.abs(blueTeamScore - redTeamScore);
 
     const today = format(new Date(), 'd MMM yyyy');
 
@@ -85,16 +78,23 @@ const FinalSummary = () => {
     };
 
     const copyToClipboard = () => {
-        if (!winningTeam || !losingTeam) return;
+        if (!winningTeamData || !losingTeamData) return;
+        
+        const getTeamConfig = (teamKey: string) => {
+            if (teamKey.toLowerCase().includes('blue')) return teams.blue;
+            if (teamKey.toLowerCase().includes('red')) return teams.red;
+            return teams.blue;
+        }
 
-        const formatTeam = (team: { name: string; players: Player[] }) => {
-            const teamName = team.name.split(' (')[0].trim();
+        const formatTeam = (team: { key: string, players: Player[] }) => {
+            const teamConfig = getTeamConfig(team.key);
+            const teamName = teamConfig.name;
             const teamTotal = team.players.reduce((acc, p) => acc + (p.total || 0), 0);
             const playersText = team.players.map(p => `${p.playerName} ${p.total}`).join('\n');
             return `${teamName} - ${teamTotal}\n${playersText}`;
         };
 
-        const sortedTeams = [winningTeam, losingTeam];
+        const sortedTeams = [winningTeamData, losingTeamData];
         const textToCopy = sortedTeams.map(formatTeam).join('\n\n');
         
         navigator.clipboard.writeText(textToCopy).then(() => {
@@ -111,13 +111,12 @@ const FinalSummary = () => {
             });
         });
     };
-
-
+    
     if (data.length === 0) {
         return (
             <Card className="max-w-4xl mx-auto">
                 <CardHeader>
-                    <CardTitle>No Summary Data</CardTitle>
+                    <CardHeader>No Summary Data</CardHeader>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center h-64 text-center text-gray-400">
                     <p>Process 12 races or a summary image to see the results.</p>
@@ -126,6 +125,13 @@ const FinalSummary = () => {
         );
     }
     
+    const winningTeamConfig = winningTeamData?.key.toLowerCase().includes('blue') ? teams.blue : teams.red;
+    const losingTeamConfig = losingTeamData?.key.toLowerCase().includes('blue') ? teams.blue : teams.red;
+
+    const winningTeamColorStyle = { color: winningTeamConfig.color };
+    const losingTeamColorStyle = { color: losingTeamConfig.color };
+
+
     return (
         <div className="max-w-4xl mx-auto">
             <div className="flex justify-end items-center mb-4 gap-2">
@@ -140,22 +146,22 @@ const FinalSummary = () => {
                 <div className="p-8 bg-background/80" style={{backgroundImage: 'radial-gradient(circle, hsl(var(--border)/0.2) 1px, transparent 1px)', backgroundSize: '1rem 1rem'}}>
                     <CardHeader className="text-center p-0 mb-10">
                         <div className="flex justify-between items-baseline">
-                            <h2 className="text-xl font-bold text-foreground">Atlas League</h2>
+                            <h2 className="text-xl font-bold text-foreground">{leagueTitle}</h2>
                             <p className="text-muted-foreground">{today}</p>
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="grid grid-cols-[1fr_2fr_1fr] items-center gap-8">
                             {/* Winning Team */}
-                            {winningTeam && (
+                            {winningTeamData && (
                                 <>
-                                    <div className={cn("text-8xl font-bold justify-self-center", winningTeamColor)}>
-                                        {winningTeam.name.split(' ')[0].trim()}
+                                    <div className="text-8xl font-bold justify-self-center" style={winningTeamColorStyle}>
+                                        {winningTeamConfig.name}
                                     </div>
                                     <div className="space-y-3">
-                                        {winningTeam.players.map(player => (
+                                        {winningTeamData.players.map(player => (
                                             <div key={player.playerName} className="flex justify-between items-baseline text-2xl">
-                                                <span className={cn("font-semibold", winningTeamColor)}>{player.playerName}</span>
+                                                <span className="font-semibold" style={winningTeamColorStyle}>{player.playerName}</span>
                                                 <div>
                                                     <span className="font-mono font-medium text-foreground">{player.total}</span>
                                                     <span className="text-lg text-muted-foreground ml-4 w-12 inline-block text-right">{player.rank}</span>
@@ -163,8 +169,8 @@ const FinalSummary = () => {
                                             </div>
                                         ))}
                                     </div>
-                                    <div className={cn("text-9xl font-bold justify-self-center", winningTeamColor)}>
-                                        {winningTeam.players.reduce((acc, p) => acc + (p.total || 0), 0)}
+                                    <div className="text-9xl font-bold justify-self-center" style={winningTeamColorStyle}>
+                                        {winningTeamData.players.reduce((acc, p) => acc + (p.total || 0), 0)}
                                     </div>
                                 </>
                             )}
@@ -180,13 +186,13 @@ const FinalSummary = () => {
 
                         <div className="grid grid-cols-[1fr_2fr_1fr] items-center gap-8">
                             {/* Losing Team */}
-                            {losingTeam && (
+                            {losingTeamData && (
                                 <>
                                     <div className="text-8xl font-bold text-muted-foreground justify-self-center">
-                                        {losingTeam.name.split(' ')[0].trim()}
+                                        {losingTeamConfig.name}
                                     </div>
                                     <div className="space-y-3">
-                                        {losingTeam.players.map(player => (
+                                        {losingTeamData.players.map(player => (
                                             <div key={player.playerName} className="flex justify-between items-baseline text-2xl">
                                                 <span className="font-semibold text-foreground">{player.playerName}</span>
                                                 <div>
@@ -197,7 +203,7 @@ const FinalSummary = () => {
                                         ))}
                                     </div>
                                     <div className="text-9xl font-bold text-muted-foreground justify-self-center">
-                                        {losingTeam.players.reduce((acc, p) => acc + (p.total || 0), 0)}
+                                        {losingTeamData.players.reduce((acc, p) => acc + (p.total || 0), 0)}
                                     </div>
                                 </>
                             )}

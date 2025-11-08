@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Header from '@/components/app/header';
 import FinalSummary from '@/components/app/final-summary';
+import SummarySettings from '@/components/app/summary-settings';
 
 export default function SummaryPage() {
 
@@ -22,6 +23,7 @@ export default function SummaryPage() {
                         </Button>
                     </div>
                     <FinalSummary />
+                    <SummarySettings />
                 </div>
             </div>
         </div>
