@@ -53,7 +53,7 @@ const ShockIcon = ({ className }: { className?: string }) => (
 
 export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsPreviewProps>((_, ref) => {
   const printRef = useRef<HTMLDivElement>(null);
-  const { mergedData, shockLog, extractedData, racePicks } = useResultsStore();
+  const { mergedData, shockLog, extractedData, racePicks, handleToggleShock } = useResultsStore();
   const data = Object.values(mergedData) as Player[];
 
   const raceHeaders = useMemo(() => {
@@ -295,7 +295,9 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                         <TableCell key={sIndex} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-destructive/50')}>
                           <div className='flex items-center justify-center gap-1'>
                             {rank ?? '12th'}
-                            {shockLog[sIndex + 1] === player.playerName && <ShockIcon className='h-3 w-3' />}
+                             <Button variant="ghost" size="icon" className='h-5 w-5' onClick={() => handleToggleShock(sIndex + 1, player.playerName)}>
+                                <Zap className={cn('h-3 w-3', shockLog[sIndex + 1] === player.playerName ? 'text-primary fill-primary' : 'text-muted-foreground/50')} />
+                            </Button>
                           </div>
                         </TableCell>
                     ))}
@@ -304,7 +306,9 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                         <TableCell key={sIndex+4} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-destructive/50')}>
                             <div className='flex items-center justify-center gap-1'>
                               {rank ?? '12th'}
-                              {shockLog[sIndex + 5] === player.playerName && <ShockIcon className='h-3 w-3' />}
+                               <Button variant="ghost" size="icon" className='h-5 w-5' onClick={() => handleToggleShock(sIndex + 5, player.playerName)}>
+                                <Zap className={cn('h-3 w-3', shockLog[sIndex + 5] === player.playerName ? 'text-primary fill-primary' : 'text-muted-foreground/50')} />
+                              </Button>
                             </div>
                         </TableCell>
                     ))}
@@ -313,7 +317,9 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                         <TableCell key={sIndex+8} className={cn("text-center font-mono", getRankClass(rank), !rank && 'bg-destructive/50')}>
                             <div className='flex items-center justify-center gap-1'>
                               {rank ?? '12th'}
-                              {shockLog[sIndex + 9] === player.playerName && <ShockIcon className='h-3 w-3' />}
+                               <Button variant="ghost" size="icon" className='h-5 w-5' onClick={() => handleToggleShock(sIndex + 9, player.playerName)}>
+                                <Zap className={cn('h-3 w-3', shockLog[sIndex + 9] === player.playerName ? 'text-primary fill-primary' : 'text-muted-foreground/50')} />
+                              </Button>
                             </div>
                         </TableCell>
                     ))}
@@ -342,14 +348,14 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
                     </TableRow>
                     <TableRow className='font-bold border-y'>
                         <TableCell className="sticky left-0 bg-card/95">Diferencia</TableCell>
-                        {teamStats.diff.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className={cn("text-center font-mono", s > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
-                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp1 > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp1)}</TableCell>
-                        {teamStats.diff.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className={cn("text-center font-mono", s > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
-                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp2 > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp2)}</TableCell>
-                        {teamStats.diff.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className={cn("text-center font-mono", s > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(s)}</TableCell>)}
-                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp3 > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(teamStats.diff.gp3)}</TableCell>
+                        {teamStats.diff.raceScores.slice(0,4).map((s,i) => <TableCell key={i} className={cn("text-center font-mono", s > 0 ? 'text-green-500' : 'text-red-500')}>{s > 0 ? `+${s}`: s}</TableCell>)}
+                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp1 > 0 ? 'text-green-500' : 'text-red-500')}>{teamStats.diff.gp1 > 0 ? `+${teamStats.diff.gp1}`: teamStats.diff.gp1}</TableCell>
+                        {teamStats.diff.raceScores.slice(4,8).map((s,i) => <TableCell key={i+4} className={cn("text-center font-mono", s > 0 ? 'text-green-500' : 'text-red-500')}>{s > 0 ? `+${s}`: s}</TableCell>)}
+                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp2 > 0 ? 'text-green-500' : 'text-red-500')}>{teamStats.diff.gp2 > 0 ? `+${teamStats.diff.gp2}`: teamStats.diff.gp2}</TableCell>
+                        {teamStats.diff.raceScores.slice(8,12).map((s,i) => <TableCell key={i+8} className={cn("text-center font-mono", s > 0 ? 'text-green-500' : 'text-red-500')}>{s > 0 ? `+${s}`: s}</TableCell>)}
+                        <TableCell className={cn("text-center font-mono bg-muted/50", teamStats.diff.gp3 > 0 ? 'text-green-500' : 'text-red-500')}>{teamStats.diff.gp3 > 0 ? `+${teamStats.diff.gp3}`: teamStats.diff.gp3}</TableCell>
                         <TableCell></TableCell>
-                        <TableCell className={cn("text-center font-mono", teamStats.diff.total > 0 ? 'text-green-500' : 'text-red-500')}>{Math.abs(teamStats.diff.total)}</TableCell>
+                        <TableCell className={cn("text-center font-mono", teamStats.diff.total > 0 ? 'text-green-500' : 'text-red-500')}>{teamStats.diff.total > 0 ? `+${teamStats.diff.total}`: teamStats.diff.total}</TableCell>
                     </TableRow>
                     {redTeamName && (
                     <TableRow className='font-bold border-y'>
@@ -386,3 +392,5 @@ export const RaceResultsPreview = forwardRef<RaceResultsPreviewRef, RaceResultsP
 });
 
 RaceResultsPreview.displayName = 'RaceResultsPreview';
+
+    

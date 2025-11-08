@@ -123,7 +123,8 @@ export default function ScoreParser() {
     mergedData, setMergedData, 
     shockLog, setShockLog,
     extractedData, setExtractedData,
-    racePicks, setRacePicks
+    racePicks, setRacePicks,
+    handleToggleShock
   } = useResultsStore();
  const [isLoading, setIsLoading] = useState(false);
  const [error, setError] = useState<string | null>(null);
@@ -391,21 +392,6 @@ const handleRemoveImage = (indexToRemove: number) => {
     return finalData;
   };
 
-  const handleToggleShock = (raceNumber: number, playerName: string) => {
-    setShockLog(currentLog => {
-      const newLog = { ...currentLog };
-      const currentShockedPlayer = newLog[raceNumber];
- 
-      if (currentShockedPlayer === playerName) {
-        delete newLog[raceNumber];
-      } else {
-        newLog[raceNumber] = playerName;
-      }
-     
-      return newLog;
-    });
-  };
-
   const handleGenerateDemoData = () => {
     handleClearResults(); // Clear everything first
     setIsLoading(true);
@@ -528,6 +514,7 @@ const handleRemoveImage = (indexToRemove: number) => {
     setMergedData(finalData);
     setShockLog(newShockLog);
     setRacePicks(newRacePicks);
+    setPlayerNames(demoPlayers.join(', '));
 
     setTimeout(() => {
         setIsLoading(false);
@@ -652,7 +639,7 @@ const handleRemoveImage = (indexToRemove: number) => {
     let processedImageCount = 0;
     for (const item of imageQueue) {
       const { file, retries } = item;
-      const raceForThisImage = currentRaceNumber;
+      const raceForThisImage = currentRaceNumber + processedImageCount;
 
       try {
         const url = await readFileAsDataURL(file);
@@ -675,12 +662,9 @@ const handleRemoveImage = (indexToRemove: number) => {
             }
             
             const raceScore = rankToScore(player.rank);
-            const masterName = getMasterPlayerName(player.playerName, masterPlayerList);
-            const prevTotal = raceForThisImage > 1 ? (tempMergedDataForThisRace[masterName]?.total ?? 0) : 0;
             
             return {
               ...player,
-              score: prevTotal + raceScore,
               raceScore: raceScore, 
               rank: player.rank,
             };
@@ -751,9 +735,10 @@ const handleRemoveImage = (indexToRemove: number) => {
     const uniqueResults: LocalExtractedData[] = [];
     const existingSignatures = new Set(
         localExtractedData.map(res => {
+            if (res.data.length === 0) return null;
             const sortedPlayers = [...res.data].sort((a,b) => a.playerName.localeCompare(b.playerName));
             return sortedPlayers.map(p => `${p.playerName}:${p.score}`).join(',');
-        })
+        }).filter(Boolean)
     );
 
     for (const result of batchExtractedResults) {
@@ -929,6 +914,19 @@ const handleRemoveImage = (indexToRemove: number) => {
 
   const hasResults = Array.isArray(localExtractedData) && localExtractedData.length > 0;
 
+  const preloadedRaces = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const raceNumber = i + 1;
+      const existingData = localExtractedData.find(d => d.raceNumber === raceNumber);
+      return {
+        raceNumber: raceNumber,
+        raceName: existingData?.raceName || '',
+        pick: racePicks[raceNumber] || 'none',
+      };
+    });
+  }, [localExtractedData, racePicks]);
+
+
   return (
     <div className="flex flex-col h-full bg-background">
         <Header />
@@ -941,7 +939,7 @@ const handleRemoveImage = (indexToRemove: number) => {
                         <Card>
                              <CardHeader>
                                 <CardTitle className="flex items-center gap-2"><Settings className="text-primary"/> 1. Configuration</CardTitle>
-                                <CardDescription>Choose upload mode and optionally provide player names to improve accuracy.</CardDescription>
+                                <CardDescription>Choose upload mode and define race settings before uploading images.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="flex items-center space-x-4">
@@ -968,7 +966,61 @@ const handleRemoveImage = (indexToRemove: number) => {
                                         rows={3}
                                         disabled={isLoading || hasResults}
                                     />
+                                    <p className="text-xs text-muted-foreground">
+                                        Providing a comma-separated list of the 12 player names helps improve the accuracy of the OCR, especially for the first race.
+                                    </p>
                                 </div>
+
+                                {uploadMode === 'race-by-race' && (
+                                    <div className="space-y-4">
+                                        <Label className="flex items-center gap-2"><List /> Pre-Race Settings</Label>
+                                         <div className="border rounded-lg overflow-hidden">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="w-1/4">Race</TableHead>
+                                                        <TableHead className="w-1/2">Track</TableHead>
+                                                        <TableHead className="w-1/4 text-center">Team Pick</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {preloadedRaces.map(({ raceNumber, raceName, pick }) => (
+                                                        <TableRow key={raceNumber}>
+                                                            <TableCell className="font-medium">{raceNumber}</TableCell>
+                                                            <TableCell>
+                                                                <Select
+                                                                    value={raceName}
+                                                                    onValueChange={(value) => handleRaceNameChange(raceNumber, value)}
+                                                                >
+                                                                    <SelectTrigger className="h-8">
+                                                                        <SelectValue placeholder="Select track..." />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {Object.entries(RACE_TRACKS).map(([abbr, fullName]) => (
+                                                                            <SelectItem key={abbr} value={fullName}>{fullName}</SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className='flex items-center justify-center gap-2'>
+                                                                    <Circle className="h-4 w-4 text-blue-500 fill-blue-500" />
+                                                                    <Slider
+                                                                        value={[pick === 'blue' ? 0 : pick === 'none' ? 1 : 2]}
+                                                                        onValueChange={([val]) => handleTeamPickChange(raceNumber, val)}
+                                                                        min={0} max={2} step={1}
+                                                                        className='w-20'
+                                                                    />
+                                                                    <Circle className="h-4 w-4 text-red-500 fill-red-500" />
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
 

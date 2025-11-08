@@ -7,6 +7,7 @@ interface ResultsState {
   setMergedData: (data: MergedRaceData) => void;
   shockLog: ShockLog;
   setShockLog: (log: ShockLog | ((current: ShockLog) => ShockLog)) => void;
+  handleToggleShock: (raceNumber: number, playerName: string) => void;
   extractedData: ExtractedData[];
   setExtractedData: (data: ExtractedData[]) => void;
   racePicks: RacePicks;
@@ -20,6 +21,15 @@ export const useResultsStore = create<ResultsState>()(
       setMergedData: (data) => set({ mergedData: data }),
       shockLog: {},
       setShockLog: (log) => set(state => ({ shockLog: typeof log === 'function' ? log(state.shockLog) : log })),
+      handleToggleShock: (raceNumber, playerName) => set(state => {
+        const newLog = { ...state.shockLog };
+        if (newLog[raceNumber] === playerName) {
+          delete newLog[raceNumber];
+        } else {
+          newLog[raceNumber] = playerName;
+        }
+        return { shockLog: newLog };
+      }),
       extractedData: [],
       setExtractedData: (data) => {
         // Create a new array with imageUrl removed to save space
@@ -35,3 +45,5 @@ export const useResultsStore = create<ResultsState>()(
     }
   )
 );
+
+    
