@@ -4,7 +4,7 @@ import { useMemo, useRef } from 'react';
 import { useResultsStore } from '@/lib/store';
 import type { Player } from '@/ai/types';
 import { format } from 'date-fns';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { ImageDown, ClipboardCopy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
