@@ -35,7 +35,7 @@ const prompt = ai.definePrompt({
   - Score for this race (this is the TOTAL score up to this race, not the delta)
   - Rank in this race (e.g., "1st", "5th")
   
-  When extracting player names, normalize them to use only standard English alphabet characters and numbers. Remove any special characters, accents, or symbols.
+  When extracting player names, normalize them to use only standard English alphabet characters and numbers. Do not include team tags like 'JJ' or 'DS' in the player name itself. For example, 'JJ Tario' should be extracted as 'Tario'.
 
   The rank is the most important field. Prioritize its accuracy.
 

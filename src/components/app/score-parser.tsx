@@ -182,11 +182,17 @@ const handleRemoveImage = (indexToRemove: number) => {
 
   const normalizePlayerName = (name: string): string => {
     if (!name) return '';
-    const normalized = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    return normalized
-      .toLowerCase()
-      .replace(/^(ds|jj|d\$)[-\s.]*/i, '')
-      .replace(/[^a-z0-9]/gi, '')
+    // This regex is designed to remove prefixes like "JJ ", "DS ", "d$ ", etc.
+    // It looks for these prefixes at the start of the string, followed by optional whitespace or symbols.
+    const cleanedName = name.replace(/^(ds|jj|d\$)\s*[-. ]?\s*/i, '');
+    
+    // Fallback to remove any bracketed content if the first method fails
+    const finalName = cleanedName.includes('(') ? cleanedName.replace(/\s*\(.*\)\s*/, '') : cleanedName;
+    
+    // Final cleanup of accents and special characters
+    return finalName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
       .trim();
   }
  
@@ -223,24 +229,25 @@ const handleRemoveImage = (indexToRemove: number) => {
     newPlayerName: string,
     masterPlayerList: string[]
   ): string => {
+    const normalizedNewName = normalizePlayerName(newPlayerName);
+
     if (masterPlayerList.length === 0) {
-      return newPlayerName;
+      return normalizedNewName;
     }
  
-    const normalizedNewName = normalizePlayerName(newPlayerName);
-   
     const normalizedMasterMap = masterPlayerList.reduce((acc, masterName) => {
       acc[normalizePlayerName(masterName)] = masterName;
       return acc;
     }, {} as { [key: string]: string });
  
-    // Try to find an exact or near-exact match first.
     const directMatch = Object.entries(normalizedMasterMap).find(([normMaster, origMaster]) => {
-      return normMaster === normalizedNewName || 
-             normMaster.startsWith(normalizedNewName) || 
-             normalizedNewName.startsWith(normMaster) ||
-             (normMaster.length > 5 && normMaster.includes(normalizedNewName)) ||
-             (normalizedNewName.length > 5 && normalizedNewName.includes(normMaster));
+      const lNormMaster = normMaster.toLowerCase();
+      const lNormalizedNewName = normalizedNewName.toLowerCase();
+      return lNormMaster === lNormalizedNewName || 
+             lNormMaster.startsWith(lNormalizedNewName) || 
+             lNormalizedNewName.startsWith(lNormMaster) ||
+             (lNormMaster.length > 5 && lNormMaster.includes(lNormalizedNewName)) ||
+             (lNormalizedNewName.length > 5 && lNormalizedNewName.includes(lNormMaster));
     });
 
     if (directMatch) {
@@ -248,7 +255,7 @@ const handleRemoveImage = (indexToRemove: number) => {
     }
    
     if (masterPlayerList.length < 12) {
-      return newPlayerName;
+      return normalizedNewName;
     }
    
     return '';
@@ -309,8 +316,9 @@ const handleRemoveImage = (indexToRemove: number) => {
 
     if (raceNumber === 1 && masterPlayerList.length > 0 && Object.keys(updatedData).length === 0) {
       masterPlayerList.forEach(name => {
-        updatedData[name] = {
-          playerName: name,
+        const cleanName = normalizePlayerName(name);
+        updatedData[cleanName] = {
+          playerName: cleanName,
           team: 'Unassigned',
           ranks: Array(12).fill(null),
           gp1: null, gp2: null, gp3: null,
@@ -319,7 +327,7 @@ const handleRemoveImage = (indexToRemove: number) => {
       });
     }
 
-    const currentMasterList = Object.keys(updatedData).length > 0 ? Object.keys(updatedData) : masterPlayerList;
+    const currentMasterList = Object.keys(updatedData).length > 0 ? Object.keys(updatedData) : masterPlayerList.map(normalizePlayerName);
 
     for (const racePlayer of raceResults) {
       if (!racePlayer.isValid || !racePlayer.playerName) continue;
@@ -539,8 +547,10 @@ const handleRemoveImage = (indexToRemove: number) => {
             tableData.forEach(player => {
                 if (!player.playerName) return;
 
-                newMergedData[player.playerName] = {
-                    playerName: player.playerName,
+                const cleanName = normalizePlayerName(player.playerName);
+
+                newMergedData[cleanName] = {
+                    playerName: cleanName,
                     team: player.team,
                     ranks: Array(12).fill(null),
                     gp1: player.gp1,
@@ -553,7 +563,7 @@ const handleRemoveImage = (indexToRemove: number) => {
                 
                 if (player.shockedRaces) {
                     player.shockedRaces.forEach(raceNum => {
-                        newShockLog[raceNum] = player.playerName;
+                        newShockLog[raceNum] = cleanName;
                     });
                 }
             });
@@ -567,7 +577,7 @@ const handleRemoveImage = (indexToRemove: number) => {
                 raceNumber: 1, 
                 raceName: 'Final Summary',
                 data: tableData.map(p => ({
-                    playerName: p.playerName,
+                    playerName: normalizePlayerName(p.playerName),
                     team: p.team,
                     score: p.total,
                     rank: p.rank,
@@ -625,13 +635,14 @@ const handleRemoveImage = (indexToRemove: number) => {
         
         let raceDataWithScores = aiResult.map(player => {
             if (!player.isValid || !player.playerName) {
-              return { ...player, rank: player.rank || '?th', raceScore: 0, score: player.score ?? 0 };
+              return { ...player, rank: player.rank || '?th', raceScore: 0, score: player.score ?? 0, playerName: normalizePlayerName(player.playerName) };
             }
             
             const raceScore = rankToScore(player.rank);
             
             return {
               ...player,
+              playerName: normalizePlayerName(player.playerName),
               raceScore: raceScore, 
               rank: player.rank,
             };

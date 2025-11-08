@@ -36,6 +36,8 @@ const prompt = ai.definePrompt({
   - Final Total Score
   - An array of numbers representing the races where a lightning bolt (shock) icon is visible for that player. For example, if a player has a shock in Race 3, include 3 in the 'shockedRaces' array.
   
+  When extracting player names, normalize them to use only standard English alphabet characters and numbers. Do not include team tags like 'JJ' or 'DS' in the player name itself. For example, 'JJ Tario' should be extracted as 'Tario'.
+  
   {{#if playerNames}}
   A list of player names has been provided. Use these names as a reference to ensure the "playerName" field is accurate, even if the OCR is not perfect. Match the players on the scoreboard to these names:
   {{#each playerNames}}
